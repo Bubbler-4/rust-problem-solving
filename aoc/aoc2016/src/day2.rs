@@ -1,7 +1,6 @@
 #[aoc_generator(day2)]
 pub fn input_generator(input: &str) -> Vec<Vec<(i32, i32)>> {
-    // (1, 0) = east, (0, 1) = north
-    // turn left: (x, y) -> (-y, x); turn right: (x, y) -> (y, -x)
+    // (1, 0) = right, (0, 1) = down
     input
         .trim()
         .split('\n')
