@@ -11,3 +11,4 @@ pub mod float_sort;
 pub mod flow;
 pub mod fft;
 pub mod segtree;
+pub mod random;
