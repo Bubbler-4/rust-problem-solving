@@ -1,46 +1,88 @@
 #![allow(unused_macros)]
 #![allow(unused_imports)]
+#![allow(unused_must_use)]
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
-use std::io::{prelude::*, stdin, stdout, BufWriter};
+use std::io::{Read, Write, stdin, BufWriter};
 use std::convert::TryInto;
+use std::os::unix::prelude::FromRawFd;
 
-#[allow(dead_code)]
-fn fix<T, const N: usize>(v: Vec<T>) -> [T; N] {
-    v.try_into().unwrap_or_else(|_| panic!())
+type Is = dyn Iterator<Item=&'static str>;
+struct I { i: Box<Is> }
+impl I {
+    fn new(s: &'static str) -> Self {
+        let it = s.split_ascii_whitespace(); // change as necessary
+        I { i: Box::new(it) }
+    }
+    fn g<T: Get>(&mut self) -> Option<T> { T::get(&mut self.i) }
 }
-
-// [t;n] -> (0..n).map(|_| r!(it, t)).collect::<Vec<_>>()
-// (t1, t2, ..., ti) -> (r!(it, t1), r!(it, t2), ...)
-// &str -> it.next().unwrap()
-// t -> it.next().unwrap().parse::<t>().unwrap()
-macro_rules! i {
-    () => {};
-    ($i:ident, &str) => { $i.next().unwrap() };
-    ($i:ident, &[u8]) => { $i.next().unwrap().as_bytes() };
-    (@v $i:ident, ($($b:tt)*) ; $($l:tt)*) => { (0..$($l)*).map(|_| i!($i, $($b)*)).collect::<Vec<_>>() };
-    (@v $i:ident, ($($b:tt)*) $t:tt $($l:tt)*) => { i!(@v $i, ($($b)* $t) $($l)* ) };
-    ($i:ident, [$t:tt $($l:tt)*]) => { i!(@v $i, ($t) $($l)* ) };
-    (@t $i:ident, ($($b:tt)*) ($($a:tt)*) ()) => { ($($b)*, i!($i, $($a)*)) };
-    (@t $i:ident, () ($($a:tt)*) (, $t:tt $($p:tt)*)) => { i!(@t $i, (i!($i, $($a)*)) ($t) ($($p)*) ) };
-    (@t $i:ident, ($($b:tt)*) ($($a:tt)*) (, $t:tt $($p:tt)*)) => { i!(@t $i, ($($b)*, i!($i, $($a)*)) ($t) ($($p)*) ) };
-    (@t $i:ident, ($($b:tt)*) ($($a:tt)*) ($t:tt $($p:tt)*)) => { i!(@t $i, ($($b)*) ($($a)* $t) ($($p)*) ) };
-    ($i:ident, ($t:tt $($p:tt)*)) => { i!(@t $i, () ($t) ($($p)*) ) };
-    ($i:ident, $t:tt) => { $i.next().unwrap().parse::<$t>().unwrap() };
+macro_rules! g {
+    ($i: ident, $t: ty) => { $i.g::<$t>() };
+    ($i: ident, $t: ty, $e:expr $(, $ee:expr)*) => {
+        {let n = $e;
+        (|| {
+            let mut vv = Vec::with_capacity(n);
+            for _ in 0..n { vv.push(g!($i, $t $(, $ee)*)?); }
+            Some(vv)
+        })()}
+    };
 }
-macro_rules! brk { ($i:ident) => { if $i.peek().is_none() { break; } }; }
+trait Get: Sized { fn get(it: &mut Is) -> Option<Self>; }
+macro_rules! get {
+    (p, $it:ident) => { $it.next()?.parse().ok() };
+    (s, $it:ident) => { $it.next() };
+    (b, $it:ident) => { Some($it.next()?.as_bytes()) };
+    ($ty:ty, $tt:tt) => { impl Get for $ty { fn get(it: &mut Is) -> Option<Self> { get!($tt, it) }}};
+}
+get!(usize, p); get!(u128, p); get!(i64, p); get!(i128, p); get!(f64, p); get!(&str, s); get!(&[u8], b);
+macro_rules! tup { ($($t:ident),*) => { impl<$($t: Get),*> Get for ($($t),*) { fn get(it: &mut Is) -> Option<Self> { Some(($($t::get(it)?),*)) }}}; }
+tup!(T, U); tup!(T, U, V); tup!(T, U, V, W); tup!(T, U, V, W, X); tup!(T, U, V, W, X, Y);
+impl<T: Get, const N: usize> Get for [T;N] { fn get(it: &mut Is) -> Option<Self> {
+    let mut vv = Vec::with_capacity(N);
+    for _ in 0..N { vv.push(T::get(it)?); }
+    vv.try_into().ok()
+}}
 
 fn main() {
     let stdin = stdin();
     let stdin = &mut stdin.lock();
-    let mut buf = String::with_capacity(1<<20);
+    let mut buf = String::new();
     stdin.read_to_string(&mut buf).unwrap();
-    let mut ww = buf.split_ascii_whitespace().peekable();
-    let stdout = stdout();
-    let mut stdout = BufWriter::new(stdout.lock());
-    macro_rules! print { ($($tt:tt)*) => { write!(stdout, $($tt)*).unwrap() }; }
-    macro_rules! println { ($($tt:tt)*) => { writeln!(stdout, $($tt)*).unwrap() }; }
+    let buf = Box::leak(buf.into_boxed_str());
+    let ii = I::new(buf);
+    let stdout = unsafe { std::fs::File::from_raw_fd(1) };
+    let mut oo = BufWriter::new(stdout);
+    solve(ii, &mut oo);
+}
 
-    //////////////////////////////
-    println!("{}", i!(ww, usize));
+#[cfg(test)]
+mod test {
+    #[test]
+    fn is_solved() {
+        let url = format!("https://www.acmicpc.net/problem/{}", PROBLEM);
+        let res = reqwest::blocking::get(url).unwrap().text().unwrap();
+        let html = scraper::Html::parse_document(&res);
+        let spj_selector = scraper::Selector::parse("span.problem-label-spj").unwrap();
+        let mut it = html.select(&spj_selector);
+        let spj = it.next().is_some();
+        let selector = scraper::Selector::parse("pre.sampledata").unwrap();
+        let mut it = html.select(&selector);
+        while let Some(inel) = it.next() {
+            let output = it.next().unwrap().inner_html();
+            let input = Box::leak(inel.inner_html().into_boxed_str());
+            let ii = crate::I::new(input);
+            let mut oo = std::io::Cursor::new(Vec::<u8>::new());
+            crate::solve(ii, &mut oo);
+            let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
+            for (l1, l2) in result.lines().zip(output.lines()) {
+                if !spj { assert_eq!(l1.trim_end(), l2.trim_end()); }
+                else { println!("{} {}", l1.trim_end(), l2.trim_end()); }
+            }
+        }
+    }
+    const PROBLEM: usize = 1117;
+}
+
+fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
+    None
 }

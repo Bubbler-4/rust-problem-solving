@@ -1,2 +1,2 @@
 #!/bin/bash
-time ( cargo test --bin main -- --nocapture; echo Exit code: $? )
+time ( cargo test --bin boj -- --nocapture; echo Exit code: $? )
