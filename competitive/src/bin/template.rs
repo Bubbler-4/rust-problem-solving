@@ -48,6 +48,7 @@ fn main() {
     let stdin = &mut stdin.lock();
     let mut buf = String::new();
     stdin.read_to_string(&mut buf).unwrap();
+    let buf = preprocess(buf);
     let buf = Box::leak(buf.into_boxed_str());
     let ii = I::new(buf);
     let stdout = unsafe { std::fs::File::from_raw_fd(1) };
@@ -69,7 +70,7 @@ mod test {
         let mut it = html.select(&selector);
         while let Some(inel) = it.next() {
             let output = it.next().unwrap().inner_html();
-            let input = Box::leak(inel.inner_html().into_boxed_str());
+            let input = Box::leak(crate::preprocess(inel.inner_html()).into_boxed_str());
             let ii = crate::I::new(input);
             let mut oo = std::io::Cursor::new(Vec::<u8>::new());
             crate::solve(ii, &mut oo);
@@ -80,9 +81,16 @@ mod test {
             }
         }
     }
-    const PROBLEM: usize = 1117;
+    const PROBLEM: usize = 20377;
+}
+
+fn preprocess(buf: String) -> String {
+    buf
+    // buf.replace('.', "")
 }
 
 fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
+    let n = g!(ii, usize)?;
+    write!(oo, "{}", n);
     None
 }

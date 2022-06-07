@@ -1,2 +1,3 @@
 #!/bin/bash
-time ( cargo test --bin boj -- --nocapture; echo Exit code: $? )
+cargo build --bin main --tests --release
+time ( cargo test --bin main --release -- --nocapture; echo Exit code: $? )

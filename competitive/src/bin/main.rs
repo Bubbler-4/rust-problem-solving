@@ -48,6 +48,7 @@ fn main() {
     let stdin = &mut stdin.lock();
     let mut buf = String::new();
     stdin.read_to_string(&mut buf).unwrap();
+    let buf = preprocess(buf);
     let buf = Box::leak(buf.into_boxed_str());
     let ii = I::new(buf);
     let stdout = unsafe { std::fs::File::from_raw_fd(1) };
@@ -69,7 +70,7 @@ mod test {
         let mut it = html.select(&selector);
         while let Some(inel) = it.next() {
             let output = it.next().unwrap().inner_html();
-            let input = Box::leak(inel.inner_html().into_boxed_str());
+            let input = Box::leak(crate::preprocess(inel.inner_html()).into_boxed_str());
             let ii = crate::I::new(input);
             let mut oo = std::io::Cursor::new(Vec::<u8>::new());
             crate::solve(ii, &mut oo);
@@ -80,14 +81,19 @@ mod test {
             }
         }
     }
-    const PROBLEM: usize = 1117;
+    const PROBLEM: usize = 20377;
+}
+
+fn preprocess(buf: String) -> String {
+    buf
+    // buf.replace('.', "")
 }
 
 fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
-    let [w, h, f, c, x1, y1, x2, y2] = g!(ii, [usize; 8])?;
-    let double = f.min(w - f);
-    let white_y = (y2 - y1) * (c + 1);
-    let white_x = if x2 <= double { (x2 - x1) * 2 } else if x1 >= double { x2 - x1 } else { (x2 - double) + (double - x1) * 2 };
-    write!(oo, "{}", w * h - white_y * white_x);
-    None
+    let v = g!(ii, [usize; 3], 16)?;
+    loop {
+        let [r, g, b] = g!(ii, [usize; 3])?;
+        let [rr, gg, bb] = v.iter().min_by_key(|&[rr, gg, bb]| rr.abs_diff(r).pow(2) + gg.abs_diff(g).pow(2) + bb.abs_diff(b).pow(2))?;
+        writeln!(oo, "{:>3} {:>3} {:>3} maps to {:>3} {:>3} {:>3}", r, g, b, rr, gg, bb);
+    }
 }
