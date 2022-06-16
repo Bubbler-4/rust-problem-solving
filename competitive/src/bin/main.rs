@@ -56,44 +56,128 @@ fn main() {
     solve(ii, &mut oo);
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn is_solved() {
-        let url = format!("https://www.acmicpc.net/problem/{}", PROBLEM);
-        let res = reqwest::blocking::get(url).unwrap().text().unwrap();
-        let html = scraper::Html::parse_document(&res);
-        let spj_selector = scraper::Selector::parse("span.problem-label-spj").unwrap();
-        let mut it = html.select(&spj_selector);
-        let spj = it.next().is_some();
-        let selector = scraper::Selector::parse("pre.sampledata").unwrap();
-        let mut it = html.select(&selector);
-        while let Some(inel) = it.next() {
-            let output = it.next().unwrap().inner_html();
-            let input = Box::leak(crate::preprocess(inel.inner_html()).into_boxed_str());
-            let ii = crate::I::new(input);
-            let mut oo = std::io::Cursor::new(Vec::<u8>::new());
-            crate::solve(ii, &mut oo);
-            let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
-            for (l1, l2) in result.lines().zip(output.lines()) {
-                if !spj { assert_eq!(l1.trim_end(), l2.trim_end()); }
-                else { println!("{} {}", l1.trim_end(), l2.trim_end()); }
-            }
-        }
-    }
-    const PROBLEM: usize = 20377;
-}
-
 fn preprocess(buf: String) -> String {
     buf
     // buf.replace('.', "")
 }
 
 fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
-    let v = g!(ii, [usize; 3], 16)?;
-    loop {
-        let [r, g, b] = g!(ii, [usize; 3])?;
-        let [rr, gg, bb] = v.iter().min_by_key(|&[rr, gg, bb]| rr.abs_diff(r).pow(2) + gg.abs_diff(g).pow(2) + bb.abs_diff(b).pow(2))?;
-        writeln!(oo, "{:>3} {:>3} {:>3} maps to {:>3} {:>3} {:>3}", r, g, b, rr, gg, bb);
+    let [r, c] = g!(ii, [usize; 2])?;
+    let mut dp = vec![vec![0usize; c]; r];
+    for rr in 0..r {
+        for cc in 0..c {
+            if rr == 0 || cc == 0 { dp[rr][cc] = 1; }
+            else { dp[rr][cc] = (dp[rr-1][cc] + dp[rr][cc-1] + dp[rr-1][cc-1]) % 1_000_000_007; }
+        }
+    }
+    write!(oo, "{}", dp[r-1][c-1]);
+    None
+}
+
+#[cfg(test)]
+mod test {
+    const PROBLEM: usize = 14494;
+    use console::Style;
+    use similar::{ChangeTag, TextDiff};
+    use reqwest::blocking::get;
+    use scraper::{Html, Selector};
+    //#[test]
+    #[allow(dead_code)]
+    fn custom() {
+        fn check(rows: usize, cols: usize, r1: usize, c1: usize, r2: usize, c2: usize, ans: &str) {
+            let mut lines = ans.lines().map(|l| l.as_bytes()).collect::<Vec<_>>();
+            if lines[0] == b"NO" { return; }
+            lines.remove(0);
+            let error = |msg: &str| {
+                println!("Input: {} {} {} {} {} {}", rows, cols, r1, c1, r2, c2);
+                println!("Output: {}", ans);
+                println!("{}", msg);
+                assert!(false);
+            };
+            if lines.len() != rows { error("row count mismatch"); }
+            if lines.iter().any(|l| l.len() != cols) { error("col count mismatch"); }
+            if lines[r1-1][c1-1] != b'#' { error("r1c1 is not #"); }
+            if lines[r2-1][c2-1] != b'.' { error("r2c2 is not ."); }
+            let mut visited = vec![vec![false; cols]; rows];
+            let mut q = std::collections::VecDeque::new();
+            q.push_back((r1-1, c1-1));
+            while let Some((r, c)) = q.pop_front() {
+                if visited[r][c] { error("cycle found for #"); }
+                visited[r][c] = true;
+                if r > 0 && lines[r-1][c] == b'#' && !visited[r-1][c] { q.push_back((r-1, c)); }
+                if r < rows-1 && lines[r+1][c] == b'#' && !visited[r+1][c] { q.push_back((r+1, c)); }
+                if c > 0 && lines[r][c-1] == b'#' && !visited[r][c-1] { q.push_back((r, c-1)); }
+                if c < cols-1 && lines[r][c+1] == b'#' && !visited[r][c+1] { q.push_back((r, c+1)); }
+            }
+            q.push_back((r2-1, c2-1));
+            while let Some((r, c)) = q.pop_front() {
+                if visited[r][c] { error("cycle found for ."); }
+                visited[r][c] = true;
+                if r > 0 && lines[r-1][c] == b'.' && !visited[r-1][c] { q.push_back((r-1, c)); }
+                if r < rows-1 && lines[r+1][c] == b'.' && !visited[r+1][c] { q.push_back((r+1, c)); }
+                if c > 0 && lines[r][c-1] == b'.' && !visited[r][c-1] { q.push_back((r, c-1)); }
+                if c < cols-1 && lines[r][c+1] == b'.' && !visited[r][c+1] { q.push_back((r, c+1)); }
+            }
+            if visited.iter().any(|l| l.iter().any(|x| !*x)) { error("unreachable cell found"); }
+        }
+        // stress
+        let max = 14;
+        for rows in 2..=max {
+            for cols in 2..=max {
+                for r1 in 1..=rows {
+                    for c1 in 1..=cols {
+                        for r2 in 1..=rows {
+                            for c2 in 1..=cols {
+                                if (r1, c1) == (r2, c2) { continue; }
+                                let input = format!("{} {} {} {} {} {}", rows, cols, r1, c1, r2, c2);
+                                let ii = crate::I::new(Box::leak(input.into_boxed_str()));
+                                let mut oo = std::io::Cursor::new(Vec::<u8>::new());
+                                crate::solve(ii, &mut oo);
+                                let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
+                                check(rows, cols, r1, c1, r2, c2, &result);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn is_solved() {
+        let url = format!("https://www.acmicpc.net/problem/{}", PROBLEM);
+        let res = get(url).unwrap().text().unwrap();
+        let html = Html::parse_document(&res);
+        let spj_selector = Selector::parse("span.problem-label-spj").unwrap();
+        let mut it = html.select(&spj_selector);
+        let spj = it.next().is_some();
+        let selector = Selector::parse("pre.sampledata").unwrap();
+        let mut it = html.select(&selector);
+        while let Some(inel) = it.next() {
+            let output = it.next().unwrap().inner_html();
+            let input = Box::leak(crate::preprocess(inel.inner_html()).into_boxed_str());
+            let ii = crate::I::new(input);
+            let mut oo = std::io::Cursor::new(Vec::<u8>::new());
+            let now = std::time::Instant::now();
+            crate::solve(ii, &mut oo);
+            let elapsed = now.elapsed().as_micros();
+            let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
+            let output = output.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
+            let result = result.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
+            let diff = TextDiff::from_lines(&result, &output);
+            let styles = if spj { (Style::new(), Style::new(), Style::new()) } else { (Style::new().red(), Style::new().green(), Style::new()) };
+            let mut failed = false;
+            for op in diff.ops() {
+                for change in diff.iter_changes(op) {
+                    let (sign, style) = match change.tag() {
+                        ChangeTag::Delete => { failed = true; ("-", &styles.0) },
+                        ChangeTag::Insert => { failed = true; ("+", &styles.1) },
+                        ChangeTag::Equal => (" ", &styles.2),
+                    };
+                    print!("{}{}", style.apply_to(sign), style.apply_to(change));
+                }
+            }
+            if !spj && failed { assert!(false, "incorrect output"); }
+            println!("Elapsed: {}.{:06}", elapsed / 1000000, elapsed % 1000000);
+        }
     }
 }
