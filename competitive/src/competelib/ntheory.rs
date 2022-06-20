@@ -29,3 +29,11 @@ fn isqrt(n: usize) -> usize {
     }
     x
 }
+
+fn isqrt_ceil(n: usize) -> usize {
+    let mut x = 4294967295;
+    while x * x > n {
+        x = (x + n / x) / 2;
+    }
+    if x * x == n { x } else { x + 1 }
+}
