@@ -3,9 +3,8 @@
 #![allow(unused_must_use)]
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
-use std::io::{Read, Write, stdin, BufWriter};
+use std::io::{Read, Write, stdin, stdout, BufWriter};
 use std::convert::TryInto;
-use std::os::unix::prelude::FromRawFd;
 
 type Is = dyn Iterator<Item=&'static str>;
 struct I { i: Box<Is> }
@@ -42,6 +41,7 @@ impl<T: Get, const N: usize> Get for [T;N] { fn get(it: &mut Is) -> Option<Self>
     for _ in 0..N { vv.push(T::get(it)?); }
     vv.try_into().ok()
 }}
+#[cfg(not(test))] macro_rules! dbg { ($($t:tt)*) => {}; }
 
 fn main() {
     let stdin = stdin();
@@ -51,32 +51,35 @@ fn main() {
     let buf = preprocess(buf);
     let buf = Box::leak(buf.into_boxed_str());
     let ii = I::new(buf);
-    let stdout = unsafe { std::fs::File::from_raw_fd(1) };
-    let mut oo = BufWriter::new(stdout);
+    let stdout = stdout();
+    let stdoutlock = stdout.lock();
+    let mut oo = BufWriter::new(stdoutlock);
     solve(ii, &mut oo);
 }
 
 fn preprocess(buf: String) -> String {
     buf
-    // buf.replace('.', "")
+    //.replace(' ', "^")
 }
 
 fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
-    let [r, c] = g!(ii, [usize; 2])?;
-    let mut dp = vec![vec![0usize; c]; r];
-    for rr in 0..r {
-        for cc in 0..c {
-            if rr == 0 || cc == 0 { dp[rr][cc] = 1; }
-            else { dp[rr][cc] = (dp[rr-1][cc] + dp[rr][cc-1] + dp[rr-1][cc-1]) % 1_000_000_007; }
-        }
+    let t = g!(ii, usize)?;
+    for _ in 0..t {
+        let [x1, y1, x2, y2] = g!(ii, [i64; 4])?;
+        let n = g!(ii, usize)?;
+        let v = g!(ii, [i64; 3], n)?;
+        let is_inside = |x: i64, y: i64, cx: i64, cy: i64, r: i64| (cx-x).pow(2) + (cy-y).pow(2) < r.pow(2);
+        let ans = v.into_iter()
+            .filter(|&[cx, cy, r]| is_inside(x1, y1, cx, cy, r) != is_inside(x2, y2, cx, cy, r))
+            .count();
+        writeln!(oo, "{}", ans);
     }
-    write!(oo, "{}", dp[r-1][c-1]);
     None
 }
 
 #[cfg(test)]
 mod test {
-    const PROBLEM: usize = 14494;
+    const PROBLEM: usize = 1004;
     use console::Style;
     use similar::{ChangeTag, TextDiff};
     use reqwest::blocking::get;
@@ -161,8 +164,8 @@ mod test {
             crate::solve(ii, &mut oo);
             let elapsed = now.elapsed().as_micros();
             let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
-            let output = output.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
-            let result = result.lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
+            let output = output.trim_end().lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
+            let result = result.trim_end().lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
             let diff = TextDiff::from_lines(&result, &output);
             let styles = if spj { (Style::new(), Style::new(), Style::new()) } else { (Style::new().red(), Style::new().green(), Style::new()) };
             let mut failed = false;
