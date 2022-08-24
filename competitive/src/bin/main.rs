@@ -1,186 +1,151 @@
-#![allow(unused_macros)]
 #![allow(unused_imports)]
 #![allow(unused_must_use)]
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
-use std::io::{Read, Write, stdin, stdout, BufWriter};
-use std::convert::TryInto;
 
-type Is = dyn Iterator<Item=&'static str>;
-struct I { i: Box<Is> }
-impl I {
-    fn new(s: &'static str) -> Self {
-        let it = s.split_ascii_whitespace(); // change as necessary
-        I { i: Box::new(it) }
-    }
-    fn g<T: Get>(&mut self) -> Option<T> { T::get(&mut self.i) }
-}
-macro_rules! g {
-    ($i: ident, $t: ty) => { $i.g::<$t>() };
-    ($i: ident, $t: ty, $e:expr $(, $ee:expr)*) => {
-        {let n = $e;
-        (|| {
-            let mut vv = Vec::with_capacity(n);
-            for _ in 0..n { vv.push(g!($i, $t $(, $ee)*)?); }
-            Some(vv)
-        })()}
-    };
-}
-trait Get: Sized { fn get(it: &mut Is) -> Option<Self>; }
-macro_rules! get {
-    (p, $it:ident) => { $it.next()?.parse().ok() };
-    (s, $it:ident) => { $it.next() };
-    (b, $it:ident) => { Some($it.next()?.as_bytes()) };
-    ($ty:ty, $tt:tt) => { impl Get for $ty { fn get(it: &mut Is) -> Option<Self> { get!($tt, it) }}};
-}
-get!(usize, p); get!(u128, p); get!(i64, p); get!(i128, p); get!(f64, p); get!(&str, s); get!(&[u8], b);
-macro_rules! tup { ($($t:ident),*) => { impl<$($t: Get),*> Get for ($($t),*) { fn get(it: &mut Is) -> Option<Self> { Some(($($t::get(it)?),*)) }}}; }
-tup!(T, U); tup!(T, U, V); tup!(T, U, V, W); tup!(T, U, V, W, X); tup!(T, U, V, W, X, Y);
-impl<T: Get, const N: usize> Get for [T;N] { fn get(it: &mut Is) -> Option<Self> {
-    let mut vv = Vec::with_capacity(N);
-    for _ in 0..N { vv.push(T::get(it)?); }
-    vv.try_into().ok()
-}}
-#[cfg(not(test))] macro_rules! dbg { ($($t:tt)*) => {}; }
-
-fn main() {
-    let stdin = stdin();
-    let stdin = &mut stdin.lock();
-    let mut buf = String::new();
-    stdin.read_to_string(&mut buf).unwrap();
-    let buf = preprocess(buf);
-    let buf = Box::leak(buf.into_boxed_str());
-    let ii = I::new(buf);
-    let stdout = stdout();
-    let stdoutlock = stdout.lock();
-    let mut oo = BufWriter::new(stdoutlock);
-    solve(ii, &mut oo);
-}
-
-fn preprocess(buf: String) -> String {
-    buf
-    //.replace(' ', "^")
-}
-
-fn solve<W: Write>(mut ii: I, oo: &mut W) -> Option<()> {
-    let t = g!(ii, usize)?;
-    for _ in 0..t {
-        let [x1, y1, x2, y2] = g!(ii, [i64; 4])?;
-        let n = g!(ii, usize)?;
-        let v = g!(ii, [i64; 3], n)?;
-        let is_inside = |x: i64, y: i64, cx: i64, cy: i64, r: i64| (cx-x).pow(2) + (cy-y).pow(2) < r.pow(2);
-        let ans = v.into_iter()
-            .filter(|&[cx, cy, r]| is_inside(x1, y1, cx, cy, r) != is_inside(x2, y2, cx, cy, r))
-            .count();
-        writeln!(oo, "{}", ans);
-    }
+fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
+    let [n, m] = ii.get::<[usize;2]>()?;
+    let set = (0..n).flat_map(|_| ii.get::<String>()).collect::<HashSet<_>>();
+    let ans = (0..m).flat_map(|_| ii.get::<String>()).filter(|s| set.contains(s)).count();
+    writeln!(oo, "{}", ans);
     None
 }
 
-#[cfg(test)]
-mod test {
-    const PROBLEM: usize = 1004;
-    use console::Style;
-    use similar::{ChangeTag, TextDiff};
-    use reqwest::blocking::get;
-    use scraper::{Html, Selector};
-    //#[test]
-    #[allow(dead_code)]
-    fn custom() {
-        fn check(rows: usize, cols: usize, r1: usize, c1: usize, r2: usize, c2: usize, ans: &str) {
-            let mut lines = ans.lines().map(|l| l.as_bytes()).collect::<Vec<_>>();
-            if lines[0] == b"NO" { return; }
-            lines.remove(0);
-            let error = |msg: &str| {
-                println!("Input: {} {} {} {} {} {}", rows, cols, r1, c1, r2, c2);
-                println!("Output: {}", ans);
-                println!("{}", msg);
-                assert!(false);
-            };
-            if lines.len() != rows { error("row count mismatch"); }
-            if lines.iter().any(|l| l.len() != cols) { error("col count mismatch"); }
-            if lines[r1-1][c1-1] != b'#' { error("r1c1 is not #"); }
-            if lines[r2-1][c2-1] != b'.' { error("r2c2 is not ."); }
-            let mut visited = vec![vec![false; cols]; rows];
-            let mut q = std::collections::VecDeque::new();
-            q.push_back((r1-1, c1-1));
-            while let Some((r, c)) = q.pop_front() {
-                if visited[r][c] { error("cycle found for #"); }
-                visited[r][c] = true;
-                if r > 0 && lines[r-1][c] == b'#' && !visited[r-1][c] { q.push_back((r-1, c)); }
-                if r < rows-1 && lines[r+1][c] == b'#' && !visited[r+1][c] { q.push_back((r+1, c)); }
-                if c > 0 && lines[r][c-1] == b'#' && !visited[r][c-1] { q.push_back((r, c-1)); }
-                if c < cols-1 && lines[r][c+1] == b'#' && !visited[r][c+1] { q.push_back((r, c+1)); }
+// Nothing to see after this line (I/O template)
+#[allow(dead_code)]
+mod template {
+    pub use std::io::{Write, stdin, stdout, BufWriter, BufRead, Cursor};
+    use std::str::FromStr;
+    use std::ops::{Index, IndexMut, Range, Deref};
+    pub struct Dim<T: Sized, const N: usize> {
+        dims: [usize; N],
+        slice: Vec<T>
+    }
+    impl<T, const N: usize> Dim<T, N> {
+        fn new(dims: [usize; N], slice: Vec<T>) -> Self { Self { dims, slice } }
+        fn into_flat(self) -> Vec<T> { self.slice }
+    }
+    impl<T, const N: usize> Index<[usize; N]> for Dim<T, N> {
+        type Output = T;
+        fn index(&self, index: [usize; N]) -> &Self::Output {
+            let mut idx = index[0];
+            for i in 1..N {
+                idx = idx * self.dims[i] + index[i];
             }
-            q.push_back((r2-1, c2-1));
-            while let Some((r, c)) = q.pop_front() {
-                if visited[r][c] { error("cycle found for ."); }
-                visited[r][c] = true;
-                if r > 0 && lines[r-1][c] == b'.' && !visited[r-1][c] { q.push_back((r-1, c)); }
-                if r < rows-1 && lines[r+1][c] == b'.' && !visited[r+1][c] { q.push_back((r+1, c)); }
-                if c > 0 && lines[r][c-1] == b'.' && !visited[r][c-1] { q.push_back((r, c-1)); }
-                if c < cols-1 && lines[r][c+1] == b'.' && !visited[r][c+1] { q.push_back((r, c+1)); }
-            }
-            if visited.iter().any(|l| l.iter().any(|x| !*x)) { error("unreachable cell found"); }
+            &self.slice[idx]
         }
-        // stress
-        let max = 14;
-        for rows in 2..=max {
-            for cols in 2..=max {
-                for r1 in 1..=rows {
-                    for c1 in 1..=cols {
-                        for r2 in 1..=rows {
-                            for c2 in 1..=cols {
-                                if (r1, c1) == (r2, c2) { continue; }
-                                let input = format!("{} {} {} {} {} {}", rows, cols, r1, c1, r2, c2);
-                                let ii = crate::I::new(Box::leak(input.into_boxed_str()));
-                                let mut oo = std::io::Cursor::new(Vec::<u8>::new());
-                                crate::solve(ii, &mut oo);
-                                let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
-                                check(rows, cols, r1, c1, r2, c2, &result);
-                            }
-                        }
-                    }
+    }
+    impl<T, const N: usize> IndexMut<[usize; N]> for Dim<T, N> {
+        fn index_mut(&mut self, index: [usize; N]) -> &mut Self::Output {
+            let mut idx = index[0];
+            for i in 1..N {
+                idx = idx * self.dims[i] + index[i];
+            }
+            &mut self.slice[idx]
+        }
+    }
+    pub struct Nd<const N: usize>(pub Range<[usize; N]>);
+    impl<const N: usize> Iterator for Nd<N> {
+        type Item = [usize; N];
+        fn next(&mut self) -> Option<Self::Item> {
+            let ret = self.0.start;
+            if self.0.start[0] >= self.0.end[0] { return None; }
+            for i in (0..N).rev() {
+                self.0.start[i] += 1;
+                if self.0.start[i] < self.0.end[i] { break; }
+                else if i > 0 { self.0.start[i] = 0; }
+            }
+            Some(ret)
+        }
+    }
+
+    pub struct I<R: BufRead> {
+        r: R,
+        line: String,
+        rem: &'static str,
+    }
+
+    impl<R: BufRead> I<R> {
+        pub fn new(r: R) -> Self {
+            Self { r, line: String::new(), rem: "" }
+        }
+        pub fn get<T: Get2>(&mut self) -> Option<T> {
+            T::get(self)
+        }
+        fn next_line(&mut self) -> Option<()> {
+            self.line.clear();
+            let eof = self.r.read_line(&mut self.line).unwrap() == 0;
+            if eof { None } else {
+                unsafe { self.rem = std::mem::transmute(&self.line[..]); }
+                Some(())
+            }
+        }
+        pub fn getn<T: Get2>(&mut self, n: usize) -> Option<Vec<T>> {
+            let mut res = Vec::with_capacity(n);
+            for _ in 0..n { res.push(self.get()?); }
+            Some(res)
+        }
+        pub fn getd<T: Get2, const N: usize>(&mut self, dims: [usize; N]) -> Option<Dim<T, N>> {
+            let size = dims.iter().product::<usize>();
+            let slice = self.getn(size)?;
+            Some(Dim::new(dims, slice))
+        }
+    }
+
+    pub trait Get2 : Sized {
+        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self>;
+    }
+    trait Atom : FromStr {}
+    impl Atom for usize {} impl Atom for u128 {} impl Atom for i64 {} impl Atom for f64 {} impl Atom for String {}
+    impl<T> Get2 for T where T: Atom {
+        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
+            loop {
+                if i.rem.len() == 0 { i.next_line()?; }
+                i.rem = i.rem.trim_start_matches([' ', '\n']);
+                if let Some(tok) = i.rem.split_ascii_whitespace().next() {
+                    i.rem = &i.rem[tok.len()..];
+                    return tok.parse().ok();
                 }
             }
         }
     }
-    #[test]
-    fn is_solved() {
-        let url = format!("https://www.acmicpc.net/problem/{}", PROBLEM);
-        let res = get(url).unwrap().text().unwrap();
-        let html = Html::parse_document(&res);
-        let spj_selector = Selector::parse("span.problem-label-spj").unwrap();
-        let mut it = html.select(&spj_selector);
-        let spj = it.next().is_some();
-        let selector = Selector::parse("pre.sampledata").unwrap();
-        let mut it = html.select(&selector);
-        while let Some(inel) = it.next() {
-            let output = it.next().unwrap().inner_html();
-            let input = Box::leak(crate::preprocess(inel.inner_html()).into_boxed_str());
-            let ii = crate::I::new(input);
-            let mut oo = std::io::Cursor::new(Vec::<u8>::new());
-            let now = std::time::Instant::now();
-            crate::solve(ii, &mut oo);
-            let elapsed = now.elapsed().as_micros();
-            let result = unsafe { String::from_utf8_unchecked(oo.into_inner()) };
-            let output = output.trim_end().lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
-            let result = result.trim_end().lines().map(|l| l.trim_end()).collect::<Vec<_>>().join("\n");
-            let diff = TextDiff::from_lines(&result, &output);
-            let styles = if spj { (Style::new(), Style::new(), Style::new()) } else { (Style::new().red(), Style::new().green(), Style::new()) };
-            let mut failed = false;
-            for op in diff.ops() {
-                for change in diff.iter_changes(op) {
-                    let (sign, style) = match change.tag() {
-                        ChangeTag::Delete => { failed = true; ("-", &styles.0) },
-                        ChangeTag::Insert => { failed = true; ("+", &styles.1) },
-                        ChangeTag::Equal => (" ", &styles.2),
-                    };
-                    print!("{}{}", style.apply_to(sign), style.apply_to(change));
-                }
-            }
-            if !spj && failed { assert!(false, "incorrect output"); }
-            println!("Elapsed: {}.{:06}", elapsed / 1000000, elapsed % 1000000);
+    impl Get2 for Vec<u8> {
+        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
+            <String as Get2>::get(i).map(|s| s.into_bytes())
         }
     }
+
+    pub struct Line(pub String);
+    impl Deref for Line {
+        type Target = str;
+        fn deref(&self) -> &Self::Target { &self.0 }
+    }
+    impl Get2 for Line {
+        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
+            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem).to_owned();
+            i.rem = "";
+            Some(Line(s))
+        }
+    }
+    impl<T: Get2 + Default, const N: usize> Get2 for [T; N] {
+        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
+            let mut ret = [(); N].map(|_| T::default());
+            for ii in 0..N {
+                ret[ii] = <T as Get2>::get(i)?;
+            }
+            Some(ret)
+        }
+    }
+    macro_rules! tup { ($($t:ident),*) => { impl<$($t: Get2),*> Get2 for ($($t),*) { fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> { Some(($(<$t as Get2>::get(i)?),*)) }}}; }
+    tup!(T, U); tup!(T, U, V); tup!(T, U, V, W); tup!(T, U, V, W, X); tup!(T, U, V, W, X, Y);
+}
+use template::*;
+
+fn main() {
+    let stdin = stdin();
+    let mut ii = I::new(stdin.lock());
+    let stdout = stdout();
+    let stdout = stdout.lock();
+    let mut oo = BufWriter::new(stdout);
+    solve(&mut ii, &mut oo);
 }
