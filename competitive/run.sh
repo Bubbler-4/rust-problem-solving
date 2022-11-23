@@ -1,3 +1,4 @@
 #!/bin/bash
 cargo build --bin main --tests --release
-time ( cat input.txt | target/release/main; echo Exit code: $? )
+cargo build --bin gen_input --tests --release
+time ( target/release/gen_input | target/release/main; echo Exit code: $? )

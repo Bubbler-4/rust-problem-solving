@@ -4,60 +4,15 @@ use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    let [n, m] = ii.get::<[usize;2]>()?;
-    let set = (0..n).flat_map(|_| ii.get::<String>()).collect::<HashSet<_>>();
-    let ans = (0..m).flat_map(|_| ii.get::<String>()).filter(|s| set.contains(s)).count();
-    writeln!(oo, "{}", ans);
     None
 }
 
 // Nothing to see after this line (I/O template)
 #[allow(dead_code)]
 mod template {
-    pub use std::io::{Write, stdin, stdout, BufWriter, BufRead, Cursor};
+    pub use std::io::{Write, stdin, stdout, BufWriter, BufRead};
     use std::str::FromStr;
-    use std::ops::{Index, IndexMut, Range, Deref};
-    pub struct Dim<T: Sized, const N: usize> {
-        dims: [usize; N],
-        slice: Vec<T>
-    }
-    impl<T, const N: usize> Dim<T, N> {
-        fn new(dims: [usize; N], slice: Vec<T>) -> Self { Self { dims, slice } }
-        fn into_flat(self) -> Vec<T> { self.slice }
-    }
-    impl<T, const N: usize> Index<[usize; N]> for Dim<T, N> {
-        type Output = T;
-        fn index(&self, index: [usize; N]) -> &Self::Output {
-            let mut idx = index[0];
-            for i in 1..N {
-                idx = idx * self.dims[i] + index[i];
-            }
-            &self.slice[idx]
-        }
-    }
-    impl<T, const N: usize> IndexMut<[usize; N]> for Dim<T, N> {
-        fn index_mut(&mut self, index: [usize; N]) -> &mut Self::Output {
-            let mut idx = index[0];
-            for i in 1..N {
-                idx = idx * self.dims[i] + index[i];
-            }
-            &mut self.slice[idx]
-        }
-    }
-    pub struct Nd<const N: usize>(pub Range<[usize; N]>);
-    impl<const N: usize> Iterator for Nd<N> {
-        type Item = [usize; N];
-        fn next(&mut self) -> Option<Self::Item> {
-            let ret = self.0.start;
-            if self.0.start[0] >= self.0.end[0] { return None; }
-            for i in (0..N).rev() {
-                self.0.start[i] += 1;
-                if self.0.start[i] < self.0.end[i] { break; }
-                else if i > 0 { self.0.start[i] = 0; }
-            }
-            Some(ret)
-        }
-    }
+    use std::ops::Deref;
 
     pub struct I<R: BufRead> {
         r: R,
@@ -69,10 +24,7 @@ mod template {
         pub fn new(r: R) -> Self {
             Self { r, line: String::new(), rem: "" }
         }
-        pub fn get<T: Get2>(&mut self) -> Option<T> {
-            T::get(self)
-        }
-        fn next_line(&mut self) -> Option<()> {
+        pub fn next_line(&mut self) -> Option<()> {
             self.line.clear();
             let eof = self.r.read_line(&mut self.line).unwrap() == 0;
             if eof { None } else {
@@ -80,64 +32,123 @@ mod template {
                 Some(())
             }
         }
-        pub fn getn<T: Get2>(&mut self, n: usize) -> Option<Vec<T>> {
-            let mut res = Vec::with_capacity(n);
-            for _ in 0..n { res.push(self.get()?); }
-            Some(res)
-        }
-        pub fn getd<T: Get2, const N: usize>(&mut self, dims: [usize; N]) -> Option<Dim<T, N>> {
-            let size = dims.iter().product::<usize>();
-            let slice = self.getn(size)?;
-            Some(Dim::new(dims, slice))
+        pub fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
+            let mut exemplar = exemplar;
+            exemplar.fill(self)?;
+            Some(exemplar)
         }
     }
 
-    pub trait Get2 : Sized {
-        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self>;
+    pub trait Fill : Sized {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
     }
     trait Atom : FromStr {}
-    impl Atom for usize {} impl Atom for u128 {} impl Atom for i64 {} impl Atom for f64 {} impl Atom for String {}
-    impl<T> Get2 for T where T: Atom {
-        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
+    impl Atom for u32 {} impl Atom for usize {} impl Atom for u128 {} impl Atom for i64 {} impl Atom for f64 {}
+    impl Fill for String {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            self.clear();
             loop {
                 if i.rem.len() == 0 { i.next_line()?; }
-                i.rem = i.rem.trim_start_matches([' ', '\n']);
+                i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];
-                    return tok.parse().ok();
+                    self.push_str(tok);
+                    return Some(());
                 }
             }
         }
     }
-    impl Get2 for Vec<u8> {
-        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
-            <String as Get2>::get(i).map(|s| s.into_bytes())
+    impl<T> Fill for T where T: Atom {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            loop {
+                if i.rem.len() == 0 { i.next_line()?; }
+                i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
+                if let Some(tok) = i.rem.split_ascii_whitespace().next() {
+                    i.rem = &i.rem[tok.len()..];
+                    *self = tok.parse().ok()?;
+                    return Some(());
+                }
+            }
+        }
+    }
+    impl Fill for Vec<u8> {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            self.clear();
+            loop {
+                if i.rem.len() == 0 { i.next_line()?; }
+                i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
+                if let Some(tok) = i.rem.split_ascii_whitespace().next() {
+                    i.rem = &i.rem[tok.len()..];
+                    self.extend_from_slice(tok.as_bytes());
+                    return Some(());
+                }
+            }
         }
     }
 
     pub struct Line(pub String);
+    pub struct NLine(pub String);
     impl Deref for Line {
         type Target = str;
         fn deref(&self) -> &Self::Target { &self.0 }
     }
-    impl Get2 for Line {
-        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
-            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem).to_owned();
+    impl Deref for NLine {
+        type Target = str;
+        fn deref(&self) -> &Self::Target { &self.0 }
+    }
+    impl Fill for Line {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
             i.rem = "";
-            Some(Line(s))
+            self.0.push_str(s);
+            Some(())
         }
     }
-    impl<T: Get2 + Default, const N: usize> Get2 for [T; N] {
-        fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
-            let mut ret = [(); N].map(|_| T::default());
-            for ii in 0..N {
-                ret[ii] = <T as Get2>::get(i)?;
+    impl Fill for NLine {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            i.next_line()?;
+            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
+            i.rem = "";
+            self.0.push_str(s);
+            Some(())
+        }
+    }
+    pub const S: String = String::new();
+    pub const L: Line = Line(S);
+    pub const N: NLine = NLine(S);
+    pub const B: Vec<u8> = vec![];
+    impl<T: Fill, const N: usize> Fill for [T; N] {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            for ii in self.iter_mut() {
+                ii.fill(i)?;
             }
-            Some(ret)
+            Some(())
         }
     }
-    macro_rules! tup { ($($t:ident),*) => { impl<$($t: Get2),*> Get2 for ($($t),*) { fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> { Some(($(<$t as Get2>::get(i)?),*)) }}}; }
-    tup!(T, U); tup!(T, U, V); tup!(T, U, V, W); tup!(T, U, V, W, X); tup!(T, U, V, W, X, Y);
+    impl<T: Fill> Fill for Vec<T> {
+        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            for ii in self.iter_mut() {
+                ii.fill(i)?;
+            }
+            Some(())
+        }
+    }
+    macro_rules! tupf {
+        (($($t:ident),*), ($($v:ident),*)) => {
+            impl<$($t: Fill),*> Fill for ($($t),*) {
+                fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+                    let ($($v),*) = self;
+                    $($v.fill(i)?;)*
+                    Some(())
+                }
+            }
+        }
+    }
+    tupf!((T, U), (t, u));
+    tupf!((T, U, V), (t, u, v));
+    tupf!((T, U, V, W), (t, u, v, w));
+    tupf!((T, U, V, W, X), (t, u, v, w, x));
+    tupf!((T, U, V, W, X, Y), (t, u, v, w, x, y));
 }
 use template::*;
 

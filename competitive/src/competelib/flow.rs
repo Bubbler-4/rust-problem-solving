@@ -6,8 +6,8 @@ use std::cmp::{Reverse, Ordering::{self, *}};
 
 ///////////////////////////////////////////////////////////////////////
 /// Maximum flow (with min cost)
-/// no. of vertices n, graph [(from, to, capacity, cost)], source s, sink t -> (max flow, min cost)
-fn mcmf(n: usize, g: &[(usize, usize, i64, i64)], s: usize, t: usize) -> (i64, i64) {
+/// no. of vertices n, graph [(from, to, capacity, cost)], source s, sink t -> (max flow, min cost, graph)
+fn mcmf(n: usize, g: &[(usize, usize, i64, i64)], s: usize, t: usize) -> (i64, i64, Vec<Vec<(i64, i64)>>) {
     let mut cur_flow = 0;
     let mut cur_cost = 0;
     // adj. matrix
@@ -68,7 +68,7 @@ fn mcmf(n: usize, g: &[(usize, usize, i64, i64)], s: usize, t: usize) -> (i64, i
             prev = cur;
         }
     }
-    (cur_flow, cur_cost)
+    (cur_flow, cur_cost, f)
 }
 
 ///////////////////////////////////////////////////////////////////////
