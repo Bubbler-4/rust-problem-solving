@@ -5,7 +5,7 @@ use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 #[allow(dead_code)]
-mod fft {
+mod f64_fft {
     use std::ops::*;
     #[derive(Clone, Copy)]
     pub struct Complex {
@@ -193,11 +193,13 @@ mod ntt {
         let lens = (a.len() + b.len()).next_power_of_two();
         let mut fa = vec![0; lens];
         let mut fb = vec![0; lens];
-        for i in 0..a.len() { fa[i] = a[i]; }
-        for i in 0..b.len() { fb[i] = b[i]; }
+        fa[..a.len()].copy_from_slice(a);
+        fb[..b.len()].copy_from_slice(b);
+        //for i in 0..a.len() { fa[i] = a[i]; }
+        //for i in 0..b.len() { fb[i] = b[i]; }
         fft_opt(&mut fa, false);
         fft_opt(&mut fb, false);
-        for i in 0..lens { fa[i] = fa[i] * fb[i]; }
+        for i in 0..lens { fa[i] *= fb[i]; }
         fft_opt(&mut fa, true);
         fa.iter().take(a.len() + b.len() - 1).copied().collect()
     }
@@ -297,8 +299,10 @@ mod ntt2 {
         let lens = (a.len() + b.len()).next_power_of_two();
         let mut fa = vec![0; lens];
         let mut fb = vec![0; lens];
-        for i in 0..a.len() { fa[i] = a[i]; }
-        for i in 0..b.len() { fb[i] = b[i]; }
+        fa[..a.len()].copy_from_slice(a);
+        fb[..b.len()].copy_from_slice(b);
+        //for i in 0..a.len() { fa[i] = a[i]; }
+        //for i in 0..b.len() { fb[i] = b[i]; }
         let mut fa2 = fa.clone();
         let mut fb2 = fb.clone();
 

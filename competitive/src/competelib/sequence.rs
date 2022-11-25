@@ -14,7 +14,7 @@ fn matmul(mat1: &[usize; 4], mat2: &[usize; 4], p: usize) -> [usize; 4] {
 }
 
 fn matpow(mat: [usize; 4], pow: usize, p: usize) -> [usize; 4] {
-    let mut matpow2 = mat.clone();
+    let mut matpow2 = mat;
     let mut curmat = [1usize, 0, 0, 1];
     let mut pow = pow;
     while pow > 0 {
@@ -41,10 +41,9 @@ fn matmuln(mat1: &[Vec<usize>], mat2: &[Vec<usize>], p: usize) -> Vec<Vec<usize>
 fn matpown(mat: &[Vec<usize>], pow: usize, p: usize) -> Vec<Vec<usize>> {
     let mut matpow2 = mat.to_vec();
     let mut curmat = matpow2.clone();
-    let l = mat.len();
-    for r in 0..l {
-        for c in 0..l {
-            curmat[r][c] = (r == c) as usize;
+    for (r, row) in curmat.iter_mut().enumerate() {
+        for (c, cell) in row.iter_mut().enumerate() {
+            *cell = (r == c) as usize;
         }
     }
     let mut pow = pow;
@@ -80,7 +79,7 @@ fn matpown_sum(mat: &[Vec<usize>], pow: usize, p: usize) -> Vec<Vec<usize>> {
     let l = mat.len();
     let mut summat = vec![vec![0; l]; l];
     let mut powmat = summat.clone();
-    for i in 0..l { powmat[i][i] = 1; }
+    for (i, row) in powmat.iter_mut().enumerate() { row[i] = 1; }
     let id = powmat.clone();
     for bit in (0..64).rev() {
         let sumpow = matmuln(&summat, &powmat, p);

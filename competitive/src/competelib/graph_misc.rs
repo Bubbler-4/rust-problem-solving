@@ -17,8 +17,8 @@ fn toposort(n: usize, g: &[(usize, usize)]) -> Option<Vec<usize>> {
     }
     let mut l = vec![];
     let mut s = vec![];
-    for i in 0..n {
-        if incoming[i].is_empty() {
+    for (i, incoming_it) in incoming.iter().enumerate() {
+        if incoming_it.is_empty() {
             s.push(i);
         }
     }

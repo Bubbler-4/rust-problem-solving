@@ -40,8 +40,8 @@ mod template {
         type Output = T;
         fn index(&self, index: [usize; N]) -> &Self::Output {
             let mut idx = index[0];
-            for i in 1..N {
-                idx = idx * self.dims[i] + index[i];
+            for (dim, ind) in self.dims.iter().zip(&index).skip(1) {
+                idx = idx * dim + ind;
             }
             &self.slice[idx]
         }
@@ -49,8 +49,8 @@ mod template {
     impl<T, const N: usize> IndexMut<[usize; N]> for Dim<T, N> {
         fn index_mut(&mut self, index: [usize; N]) -> &mut Self::Output {
             let mut idx = index[0];
-            for i in 1..N {
-                idx = idx * self.dims[i] + index[i];
+            for (dim, ind) in self.dims.iter().zip(&index).skip(1) {
+                idx = idx * dim + ind;
             }
             &mut self.slice[idx]
         }
@@ -111,7 +111,7 @@ mod template {
     impl<T> Get2 for T where T: Atom {
         fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
             loop {
-                if i.rem.len() == 0 { i.next_line()?; }
+                if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];
@@ -141,8 +141,8 @@ mod template {
     impl<T: Get2 + Default, const N: usize> Get2 for [T; N] {
         fn get<R: BufRead>(i: &mut I<R>) -> Option<Self> {
             let mut ret = [(); N].map(|_| T::default());
-            for ii in 0..N {
-                ret[ii] = <T as Get2>::get(i)?;
+            for cell in &mut ret {
+                *cell = <T as Get2>::get(i)?;
             }
             Some(ret)
         }

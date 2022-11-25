@@ -10,10 +10,8 @@ fn rand() -> usize {
     unsafe {
         loop {
             let mut el = mem::zeroed();
-            if rdrand_step(&mut el) == 1 {
-                if el != 0 && el != !0 {
-                    return el as usize;
-                }
+            if rdrand_step(&mut el) == 1 && el != 0 && el != !0 {
+                return el as usize;
             }
         }
     }

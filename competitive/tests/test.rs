@@ -59,7 +59,7 @@ fn is_solved() {
                 print!("{}{}", style.apply_to(sign), style.apply_to(change));
             }
         }
-        if !spj && failed { assert!(false, "incorrect output"); }
+        if !spj && failed { panic!("incorrect output"); }
         println!("Elapsed: {}.{:06}", elapsed / 1000000, elapsed % 1000000);
     }
 }

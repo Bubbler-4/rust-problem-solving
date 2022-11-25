@@ -4,7 +4,7 @@
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
-mod segtree {
+mod seg_tree {
     pub struct SegTree<T>(Vec<T>);
     
     pub trait Monoid: Clone + Copy {

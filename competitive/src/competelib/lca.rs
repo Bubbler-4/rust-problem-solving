@@ -5,7 +5,7 @@ use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 #[allow(dead_code)]
-struct LCA {
+struct Lca {
     pub n: usize,
     pub parents: Vec<usize>,
     pub children: Vec<Vec<usize>>,
@@ -15,7 +15,7 @@ struct LCA {
 }
 
 #[allow(dead_code)]
-impl LCA {
+impl Lca {
     pub fn from_parents(parents: Vec<usize>) -> Self {
         let n = parents.len();
         let table_len = 64 - n.leading_zeros() as usize;
@@ -68,8 +68,11 @@ impl LCA {
     }
     pub fn find(&self, node1: usize, node2: usize) -> usize {
         let [mut node1, mut node2] = [node1, node2];
-        if self.depths[node1] < self.depths[node2] { node2 = self.advance(node2, self.depths[node2] - self.depths[node1]); }
-        else if self.depths[node1] > self.depths[node2] { node1 = self.advance(node1, self.depths[node1] - self.depths[node2]); }
+        match self.depths[node1].cmp(&self.depths[node2]) {
+            Less => { node2 = self.advance(node2, self.depths[node2] - self.depths[node1]); }
+            Equal => {}
+            Greater => { node1 = self.advance(node1, self.depths[node1] - self.depths[node2]); }
+        }
         self.find_inner(node1, node2, self.table.len())
     }
     fn find_inner(&self, node1: usize, node2: usize, step: usize) -> usize {
@@ -81,7 +84,7 @@ impl LCA {
 }
 
 #[allow(dead_code)]
-struct LCA2<T: Copy + Sized> {
+struct Lca2<T: Copy + Sized> {
     pub n: usize,
     pub parents: Vec<usize>,
     pub children: Vec<Vec<usize>>,
@@ -94,7 +97,7 @@ struct LCA2<T: Copy + Sized> {
 }
 
 #[allow(dead_code)]
-impl<T: Copy + std::fmt::Debug> LCA2<T> {
+impl<T: Copy + std::fmt::Debug> Lca2<T> {
     pub fn from_parents(parents: Vec<usize>, weights: Vec<T>, identity: T, combine: impl Fn(T, T) -> T + 'static) -> Self {
         let n = parents.len();
         let table_len = 64 - n.leading_zeros() as usize;
@@ -165,15 +168,18 @@ impl<T: Copy + std::fmt::Debug> LCA2<T> {
     pub fn find(&self, node1: usize, node2: usize) -> (usize, T) {
         let [mut node1, mut node2] = [node1, node2];
         let mut cur_weight = self.identity;
-        if self.depths[node1] < self.depths[node2] {
-            let (next_node, next_weight) = self.advance(node2, self.depths[node2] - self.depths[node1]);
-            node2 = next_node;
-            cur_weight = (self.combine)(cur_weight, next_weight);
-        }
-        else if self.depths[node1] > self.depths[node2] {
-            let (next_node, next_weight) = self.advance(node1, self.depths[node1] - self.depths[node2]);
-            node1 = next_node;
-            cur_weight = (self.combine)(cur_weight, next_weight);
+        match self.depths[node1].cmp(&self.depths[node2]) {
+            Less => {
+                let (next_node, next_weight) = self.advance(node2, self.depths[node2] - self.depths[node1]);
+                node2 = next_node;
+                cur_weight = (self.combine)(cur_weight, next_weight);
+            }
+            Equal => {}
+            Greater => {
+                let (next_node, next_weight) = self.advance(node1, self.depths[node1] - self.depths[node2]);
+                node1 = next_node;
+                cur_weight = (self.combine)(cur_weight, next_weight);
+            }
         }
         let (node, weight) = self.find_inner(node1, node2, self.table.len());
         (node, (self.combine)(cur_weight, weight))

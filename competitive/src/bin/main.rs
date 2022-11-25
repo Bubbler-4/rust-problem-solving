@@ -4,6 +4,7 @@ use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
+    writeln!(oo, "{}", ii.get(0usize)?);
     None
 }
 
@@ -48,7 +49,7 @@ mod template {
         fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             self.clear();
             loop {
-                if i.rem.len() == 0 { i.next_line()?; }
+                if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];
@@ -61,7 +62,7 @@ mod template {
     impl<T> Fill for T where T: Atom {
         fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             loop {
-                if i.rem.len() == 0 { i.next_line()?; }
+                if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];
@@ -75,7 +76,7 @@ mod template {
         fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             self.clear();
             loop {
-                if i.rem.len() == 0 { i.next_line()?; }
+                if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];

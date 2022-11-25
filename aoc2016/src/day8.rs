@@ -13,9 +13,9 @@ pub fn grid_with_size(input: &str, width: usize, height: usize) -> Vec<Vec<bool>
         if words[0] == "rect" {
             let on_width: usize = words[1].parse().unwrap();
             let on_height: usize = words[2].parse().unwrap();
-            for r in 0..on_height {
-                for c in 0..on_width {
-                    grid[r][c] = true;
+            for row in grid.iter_mut().take(on_height) {
+                for cell in row.iter_mut().take(on_width) {
+                    *cell = true;
                 }
             }
         } else if words[1] == "row" {

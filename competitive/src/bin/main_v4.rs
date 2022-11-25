@@ -95,7 +95,7 @@ mod test {
                 println!("Input: {} {} {} {} {} {}", rows, cols, r1, c1, r2, c2);
                 println!("Output: {}", ans);
                 println!("{}", msg);
-                assert!(false);
+                panic!();
             };
             if lines.len() != rows { error("row count mismatch"); }
             if lines.iter().any(|l| l.len() != cols) { error("col count mismatch"); }
@@ -179,7 +179,7 @@ mod test {
                     print!("{}{}", style.apply_to(sign), style.apply_to(change));
                 }
             }
-            if !spj && failed { assert!(false, "incorrect output"); }
+            if !spj && failed { panic!("incorrect output"); }
             println!("Elapsed: {}.{:06}", elapsed / 1000000, elapsed % 1000000);
         }
     }

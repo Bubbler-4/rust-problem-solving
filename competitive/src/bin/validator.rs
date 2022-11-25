@@ -49,20 +49,20 @@ fn test_main(input: &str) -> Result<(), String> {
         grid.push(line.as_bytes().to_vec());
     }
     parser.test(|| grid.iter().all(|row| row.len() == n*2+1), "incorrect row length")?;
-    for r in 0..=n*2 {
-        for c in 0..=n*2 {
-            if r%2==0 && c%2==0 { parser.test(|| grid[r][c] == b'+', "format spec 1 violation")?; }
-            else if r%2==1 && c%2==1 { parser.test(|| grid[r][c] == b'.', "format spec 2 violation")?; }
+    for (r, row) in grid.iter().enumerate() {
+        for (c, &cell) in row.iter().enumerate() {
+            if r%2==0 && c%2==0 { parser.test(|| cell == b'+', "format spec 1 violation")?; }
+            else if r%2==1 && c%2==1 { parser.test(|| cell == b'.', "format spec 2 violation")?; }
             else if r%2==0 && c%2==1 {
-                parser.test(|| grid[r][c] == b'.' || grid[r][c] == b'-', "format spec 3-1 violation")?;
+                parser.test(|| cell == b'.' || cell == b'-', "format spec 3-1 violation")?;
                 if r == 0 || r == 2*n {
-                    parser.test(|| grid[r][c] == b'-', "format spec 3-2 violation")?;
+                    parser.test(|| cell == b'-', "format spec 3-2 violation")?;
                 }
             }
             else if r%2==1 && c%2==0 {
-                parser.test(|| grid[r][c] == b'.' || grid[r][c] == b'|', "format spec 4-1 violation")?;
+                parser.test(|| cell == b'.' || cell == b'|', "format spec 4-1 violation")?;
                 if c == 0 || c == 2*n {
-                    parser.test(|| grid[r][c] == b'|', "format spec 4-2 violation")?;
+                    parser.test(|| cell == b'|', "format spec 4-2 violation")?;
                 }
             }
         }

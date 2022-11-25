@@ -29,8 +29,7 @@ impl Rand {
     fn rand(&mut self) -> usize {
         self.seed = self.seed.wrapping_add(0xa0761d6478bd642f);
         let t: u128 = (self.seed as u128).wrapping_mul((self.seed ^ 0xe7037ed1a0b428db) as u128);
-        let ret = (t.wrapping_shr(64) ^ t) as usize;
-        ret
+        (t.wrapping_shr(64) ^ t) as usize
     }
  
     fn roll(&mut self, limit: usize) -> usize {

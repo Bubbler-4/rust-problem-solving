@@ -115,12 +115,10 @@ fn hopcroft_karp(u: usize, v: usize, g: &[(usize, usize)]) -> usize {
     fn dfs(state: &mut State, adj: &[Vec<usize>], ui: usize) -> bool {
         if ui != state.u {
             for &v in &adj[ui] {
-                if state.dist_u[state.pair_v[v]] == state.dist_u[ui] + 1 {
-                    if dfs(state, adj, state.pair_v[v]) {
-                        state.pair_v[v] = ui;
-                        state.pair_u[ui] = v;
-                        return true;
-                    }
+                if state.dist_u[state.pair_v[v]] == state.dist_u[ui] + 1 && dfs(state, adj, state.pair_v[v]) {
+                    state.pair_v[v] = ui;
+                    state.pair_u[ui] = v;
+                    return true;
                 }
             }
             state.dist_u[ui] = usize::MAX;
@@ -130,10 +128,8 @@ fn hopcroft_karp(u: usize, v: usize, g: &[(usize, usize)]) -> usize {
     }
     while bfs(&mut state, &adj) {
         for ui in 0..u {
-            if state.pair_u[ui] == usize::MAX {
-                if dfs(&mut state, &adj, ui) {
-                    matching += 1;
-                }
+            if state.pair_u[ui] == usize::MAX && dfs(&mut state, &adj, ui) {
+                matching += 1;
             }
         }
     }
