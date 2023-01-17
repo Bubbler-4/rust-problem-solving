@@ -201,3 +201,81 @@ fn dinic(n: usize, g: &[(usize, usize, usize)], s: usize, t: usize) -> usize {
     }
     cur_flow
 }
+
+///////////////////////////////////////////////////////////////////////
+/// Maximum flow (Dinic)
+/// n=|V|, network [(u, v, cap)], source s, sink t -> (max flow, is each node reachable from s?)
+fn dinic2(n: usize, g: &[(usize, usize, usize)], s: usize, t: usize) -> (usize, Vec<bool>) {
+    let mut f = vec![vec![0; n]; n];
+    let mut adj = vec![vec![]; n];
+    let level = vec![0usize; n];
+    let ptr = vec![0usize; n];
+    for &(u, v, cap) in g {
+        f[u][v] = cap;
+        if !adj[u].contains(&v) { adj[u].push(v); }
+        if !adj[v].contains(&u) { adj[v].push(u); }
+    }
+    struct State {
+        s: usize, t: usize,
+        f: Vec<Vec<usize>>, adj: Vec<Vec<usize>>,
+        level: Vec<usize>, ptr: Vec<usize>,
+    }
+    let mut state = State { s, t, f, adj, level, ptr };
+    fn bfs(state: &mut State) -> bool {
+        let mut q = VecDeque::new();
+        q.push_back(state.s);
+        while !q.is_empty() {
+            let u = q.pop_front().unwrap();
+            for i in 0..state.adj[u].len() {
+                let v = state.adj[u][i];
+                if state.f[u][v] == 0 { continue; }
+                if state.level[v] != usize::MAX { continue; }
+                state.level[v] = state.level[u] + 1;
+                q.push_back(v);
+            }
+        }
+        state.level[state.t] != usize::MAX
+    }
+    fn dfs(state: &mut State, u: usize, pushed: usize) -> usize {
+        if pushed == 0 { return 0; }
+        if u == state.t { return pushed; }
+        while state.ptr[u] < state.adj[u].len() {
+            let v = state.adj[u][state.ptr[u]];
+            if state.level[u] + 1 == state.level[v] && state.f[u][v] != 0 {
+                let tr = dfs(state, v, pushed.min(state.f[u][v]));
+                if tr != 0 {
+                    state.f[u][v] -= tr;
+                    state.f[v][u] += tr;
+                    return tr;
+                }
+            }
+            state.ptr[u] += 1;
+        }
+        0
+    }
+    let mut cur_flow = 0;
+    loop {
+        state.level.fill(usize::MAX);
+        state.level[s] = 0;
+        if !bfs(&mut state) { break; }
+        state.ptr.fill(0);
+        loop {
+            let pushed = dfs(&mut state, s, usize::MAX);
+            if pushed == 0 { break; }
+            cur_flow += pushed;
+        }
+    }
+    let mut q = VecDeque::new();
+    q.push_back(s);
+    let mut mark = vec![false; n];
+    mark[s] = true;
+    while let Some(x) = q.pop_front() {
+        for &y in &state.adj[x] {
+            if state.f[x][y] > 0 && !mark[y] {
+                mark[y] = true;
+                q.push_back(y);
+            }
+        }
+    }
+    (cur_flow, mark)
+}
