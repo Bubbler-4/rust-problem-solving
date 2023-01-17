@@ -3,6 +3,7 @@
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
+#[allow(clippy::all)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
     writeln!(oo, "{}", ii.get(0usize)?);
     None
@@ -35,18 +36,19 @@ mod template {
         }
         pub fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
             let mut exemplar = exemplar;
-            exemplar.fill(self)?;
+            exemplar.fill_from_input(self)?;
             Some(exemplar)
         }
     }
 
     pub trait Fill : Sized {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
     }
     trait Atom : FromStr {}
-    impl Atom for u32 {} impl Atom for usize {} impl Atom for u128 {} impl Atom for i64 {} impl Atom for f64 {}
+    macro_rules! atom { ($($x: ident)*) => { $(impl Atom for $x {})* } }
+    atom!(u16 u32 usize u128 i16 i32 i64 i128 f64);
     impl Fill for String {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             self.clear();
             loop {
                 if i.rem.is_empty() { i.next_line()?; }
@@ -60,7 +62,7 @@ mod template {
         }
     }
     impl<T> Fill for T where T: Atom {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             loop {
                 if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
@@ -73,7 +75,7 @@ mod template {
         }
     }
     impl Fill for Vec<u8> {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             self.clear();
             loop {
                 if i.rem.is_empty() { i.next_line()?; }
@@ -87,7 +89,9 @@ mod template {
         }
     }
 
+    #[derive(Clone)]
     pub struct Line(pub String);
+    #[derive(Clone)]
     pub struct NLine(pub String);
     impl Deref for Line {
         type Target = str;
@@ -98,7 +102,7 @@ mod template {
         fn deref(&self) -> &Self::Target { &self.0 }
     }
     impl Fill for Line {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
             i.rem = "";
             self.0.push_str(s);
@@ -106,7 +110,7 @@ mod template {
         }
     }
     impl Fill for NLine {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             i.next_line()?;
             let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
             i.rem = "";
@@ -119,17 +123,17 @@ mod template {
     pub const N: NLine = NLine(S);
     pub const B: Vec<u8> = vec![];
     impl<T: Fill, const N: usize> Fill for [T; N] {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             for ii in self.iter_mut() {
-                ii.fill(i)?;
+                ii.fill_from_input(i)?;
             }
             Some(())
         }
     }
     impl<T: Fill> Fill for Vec<T> {
-        fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             for ii in self.iter_mut() {
-                ii.fill(i)?;
+                ii.fill_from_input(i)?;
             }
             Some(())
         }
@@ -137,9 +141,9 @@ mod template {
     macro_rules! tupf {
         (($($t:ident),*), ($($v:ident),*)) => {
             impl<$($t: Fill),*> Fill for ($($t),*) {
-                fn fill<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+                fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
                     let ($($v),*) = self;
-                    $($v.fill(i)?;)*
+                    $($v.fill_from_input(i)?;)*
                     Some(())
                 }
             }
