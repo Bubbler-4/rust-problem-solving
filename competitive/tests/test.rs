@@ -26,7 +26,9 @@ fn custom() {
 }
 #[test]
 fn is_solved() {
-    let url = format!("https://www.acmicpc.net/problem/{}", std::env::var("BOJ").unwrap());
+    let boj_var = std::env::var("BOJ").unwrap();
+    let url = if boj_var.contains('/') { format!("https://www.acmicpc.net/contest/problem/{}", boj_var)}
+    else { format!("https://www.acmicpc.net/problem/{}", boj_var) };
     let res = get(url).unwrap().text().unwrap();
     let html = Html::parse_document(&res);
     let spj_selector = Selector::parse("span.problem-label-spj").unwrap();
