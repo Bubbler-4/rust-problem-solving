@@ -13,3 +13,4 @@ pub mod fft;
 pub mod segtree;
 pub mod random;
 pub mod lca;
+pub mod trie;
