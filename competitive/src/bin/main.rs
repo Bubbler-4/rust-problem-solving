@@ -30,7 +30,7 @@ mod template {
             self.line.clear();
             let eof = self.r.read_line(&mut self.line).unwrap() == 0;
             if eof { None } else {
-                unsafe { self.rem = std::mem::transmute(&self.line[..]); }
+                self.rem = unsafe { (&self.line[..] as *const str).as_ref()? };
                 Some(())
             }
         }
@@ -138,7 +138,7 @@ mod template {
             Some(())
         }
     }
-    macro_rules! tupf {
+    macro_rules! tup {
         (($($t:ident),*), ($($v:ident),*)) => {
             impl<$($t: Fill),*> Fill for ($($t),*) {
                 fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
@@ -149,11 +149,11 @@ mod template {
             }
         }
     }
-    tupf!((T, U), (t, u));
-    tupf!((T, U, V), (t, u, v));
-    tupf!((T, U, V, W), (t, u, v, w));
-    tupf!((T, U, V, W, X), (t, u, v, w, x));
-    tupf!((T, U, V, W, X, Y), (t, u, v, w, x, y));
+    tup!((T, U), (t, u));
+    tup!((T, U, V), (t, u, v));
+    tup!((T, U, V, W), (t, u, v, w));
+    tup!((T, U, V, W, X), (t, u, v, w, x));
+    tup!((T, U, V, W, X, Y), (t, u, v, w, x, y));
 }
 use template::*;
 
