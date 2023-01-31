@@ -5,7 +5,7 @@ use std::cmp::{Reverse, Ordering::{self, *}};
 
 #[allow(clippy::all)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    writeln!(oo, "{}", ii.get(0usize)?);
+    let [a, b] = ii.get([0usize; 2])?;
     None
 }
 
@@ -14,7 +14,7 @@ fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
 mod template {
     pub use std::io::{Write, stdin, stdout, BufWriter, BufRead};
     use std::str::FromStr;
-    use std::ops::Deref;
+    //use std::ops::Deref;
 
     pub struct I<R: BufRead> {
         r: R,
@@ -34,55 +34,32 @@ mod template {
                 Some(())
             }
         }
-        pub fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
+        pub fn get<U, T: Fill<U>>(&mut self, exemplar: T) -> Option<T> {
             let mut exemplar = exemplar;
             exemplar.fill_from_input(self)?;
             Some(exemplar)
         }
     }
 
-    pub trait Fill : Sized {
+    pub trait Fill<T> : Sized {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
     }
     trait Atom : FromStr {}
     macro_rules! atom { ($($x: ident)*) => { $(impl Atom for $x {})* } }
     atom!(u16 u32 usize u128 i16 i32 i64 i128 f64);
-    impl Fill for String {
-        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            self.clear();
-            loop {
-                if i.rem.is_empty() { i.next_line()?; }
-                i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
-                if let Some(tok) = i.rem.split_ascii_whitespace().next() {
-                    i.rem = &i.rem[tok.len()..];
-                    self.push_str(tok);
-                    return Some(());
-                }
-            }
-        }
-    }
-    impl<T> Fill for T where T: Atom {
+
+    trait Set { fn set(&mut self, s: &str) -> Option<()>; }
+    impl<T: Atom> Set for T { fn set(&mut self, s: &str) -> Option<()> { *self = s.parse().ok()?; Some(()) }}
+    impl Set for String { fn set(&mut self, s: &str) -> Option<()> { self.push_str(s); Some(()) }}
+    impl Set for Vec<u8> { fn set(&mut self, s: &str) -> Option<()> { self.extend_from_slice(s.as_bytes()); Some(()) }}
+    impl<T: Set> Fill<Self> for T {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
             loop {
                 if i.rem.is_empty() { i.next_line()?; }
                 i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
                 if let Some(tok) = i.rem.split_ascii_whitespace().next() {
                     i.rem = &i.rem[tok.len()..];
-                    *self = tok.parse().ok()?;
-                    return Some(());
-                }
-            }
-        }
-    }
-    impl Fill for Vec<u8> {
-        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            self.clear();
-            loop {
-                if i.rem.is_empty() { i.next_line()?; }
-                i.rem = i.rem.trim_start_matches([' ', '\n', '\r']);
-                if let Some(tok) = i.rem.split_ascii_whitespace().next() {
-                    i.rem = &i.rem[tok.len()..];
-                    self.extend_from_slice(tok.as_bytes());
+                    self.set(tok);
                     return Some(());
                 }
             }
@@ -90,70 +67,44 @@ mod template {
     }
 
     #[derive(Clone)]
-    pub struct Line(pub String);
-    #[derive(Clone)]
-    pub struct NLine(pub String);
-    impl Deref for Line {
-        type Target = str;
-        fn deref(&self) -> &Self::Target { &self.0 }
-    }
-    impl Deref for NLine {
-        type Target = str;
-        fn deref(&self) -> &Self::Target { &self.0 }
-    }
-    impl Fill for Line {
+    pub struct Line<T, const N: usize>(pub T);
+    impl<T: Set, const N: usize> Fill<Self> for Line<T, N> {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            if N > 0 { i.next_line()?; }
             let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
             i.rem = "";
-            self.0.push_str(s);
-            Some(())
-        }
-    }
-    impl Fill for NLine {
-        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            i.next_line()?;
-            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
-            i.rem = "";
-            self.0.push_str(s);
+            self.0.set(s);
             Some(())
         }
     }
     pub const S: String = String::new();
-    pub const L: Line = Line(S);
-    pub const N: NLine = NLine(S);
-    pub const B: Vec<u8> = vec![];
-    impl<T: Fill, const N: usize> Fill for [T; N] {
+    pub const L: Line<String, 0> = Line(S);
+    pub const N: Line<String, 1> = Line(S);
+    pub const B: Vec<u8> = Vec::new();
+    pub const LB: Line<Vec<u8>, 0> = Line(B);
+    pub const NB: Line<Vec<u8>, 1> = Line(B);
+    
+    impl<T: Fill<T>, U: std::borrow::BorrowMut<[T]>> Fill<&mut [T]> for U {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            for ii in self.iter_mut() {
+            for ii in self.borrow_mut().iter_mut() {
                 ii.fill_from_input(i)?;
             }
             Some(())
         }
     }
-    impl<T: Fill> Fill for Vec<T> {
-        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            for ii in self.iter_mut() {
-                ii.fill_from_input(i)?;
-            }
-            Some(())
-        }
-    }
+
     macro_rules! tup {
-        (($($t:ident),*), ($($v:ident),*)) => {
-            impl<$($t: Fill),*> Fill for ($($t),*) {
+        ($(($($t:ident),*)),*) => {
+            $(impl<$($t: Fill<$t>),*> Fill<Self> for ($($t),*) {
                 fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-                    let ($($v),*) = self;
-                    $($v.fill_from_input(i)?;)*
+                    #[allow(non_snake_case)] let ($($t),*) = self;
+                    $($t.fill_from_input(i)?;)*
                     Some(())
                 }
-            }
+            })*
         }
     }
-    tup!((T, U), (t, u));
-    tup!((T, U, V), (t, u, v));
-    tup!((T, U, V, W), (t, u, v, w));
-    tup!((T, U, V, W, X), (t, u, v, w, x));
-    tup!((T, U, V, W, X, Y), (t, u, v, w, x, y));
+    tup!((T, U), (T, U, V), (T, U, V, W), (T, U, V, W, X), (T, U, V, W, X, Y));
 }
 use template::*;
 
