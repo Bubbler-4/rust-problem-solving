@@ -19,7 +19,6 @@ fn main() {
     // Open and parse the root file `src/lib.rs` from the current crate
     let root_syntax = load_recursive_simple("src/lib");
     // Prettyprint it into `src/bin/tmp.rs`
-    let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
     // let unparsed = prettyplease::unparse(&root_syntax);
     let unparsed = root_syntax;
     // fs::write("src/bin/tmp.rs", &unparsed).expect("Failed to write to the file src/bin/tmp.rs.");
@@ -34,13 +33,14 @@ fn main() {
     // Bruteforce removing items one by one
     // try_remove_one_item(&mut reparsed);
     let unparsed = prettyplease::unparse(&reparsed);
-    let bleached = try_remove_one_item6(&unparsed);
+    let bleached = try_remove_one_item7(&unparsed);
     // Remove dead code again, allowing structs and enums to be removed this time
     let deadcodes = rustc_check_deadcode(&bleached);
     let mut reparsed = reparse(&bleached);
     remove_deadcodes(&mut reparsed, &deadcodes, true);
     let unparsed = prettyplease::unparse(&reparsed);
     // Write out the final result
+    let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
     fs::write("src/bin/main.rs", &unparsed).expect("Failed to write to the file src/bin/main.rs.");
 }
 
@@ -309,6 +309,44 @@ fn try_remove_one_item6(src: &str) -> String {
                     }
                 }
                 positions = remaining;
+            }
+            Ok(src2.src_str().to_owned())
+        })
+    }
+    inner(src).unwrap()
+}
+
+fn try_remove_one_item7(src: &str) -> String {
+    fn inner(src: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let rt = Runtime::new()?;
+        rt.block_on(async {
+            let mut src2 = Src2::new(src);
+            let syn_file = syn::parse_file(src)?;
+            let positions = item_positions3(&syn_file);
+            let mut spans = positions.iter().map(|x| x.1).collect::<VecDeque<_>>();
+            // let mut pos_hash = positions.iter().map(|x| (x.1, &x.0)).collect::<HashMap<_,_>>();
+            let mut futures = VecDeque::new();
+            let mut failed = VecDeque::new();
+            loop {
+                if futures.len() < 5 && !spans.is_empty() {
+                    let span = spans.pop_front().unwrap();
+                    let mut modified_src = src2.clone();
+                    modified_src.bleach(span);
+                    futures.push_back(tokio::spawn(async move {
+                        let success = rustc_check_success_async(modified_src.src_str()).await;
+                        (span, success)
+                    }));
+                } else if !futures.is_empty() {
+                    let (span, success) = futures.pop_front().unwrap().await?;
+                    if success {
+                        src2.bleach(span);
+                        spans.append(&mut failed);
+                    } else {
+                        failed.push_back(span);
+                    }
+                } else {
+                    break;
+                }
             }
             Ok(src2.src_str().to_owned())
         })
