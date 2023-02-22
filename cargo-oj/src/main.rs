@@ -293,7 +293,7 @@ fn try_remove_one_item6(src: &str) -> String {
                     let span = *span;
                     let mut modified_src = src2.clone();
                     modified_src.bleach(span);
-                    println!("{:?}", span);
+                    // println!("{:?}", span);
                     futures.push(tokio::spawn(async move {
                         let success = rustc_check_success_async(modified_src.src_str()).await;
                         (span, success)
