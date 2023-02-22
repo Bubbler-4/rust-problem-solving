@@ -12,41 +12,37 @@ use regex::Regex;
 use once_cell::sync::Lazy;
 
 fn main() {
-    // Open and parse the root file `src/lib.rs` from the current crate
-    let root_syntax = load_recursive_simple("src/lib");
-    // Prettyprint it into `src/bin/tmp.rs`
-    // let unparsed = prettyplease::unparse(&root_syntax);
-    let unparsed = root_syntax;
-    // fs::write("src/bin/tmp.rs", &unparsed).expect("Failed to write to the file src/bin/tmp.rs.");
-    // Run cargo check on the resulting tmp
-    // let deadcodes = cargo_check_deadcode();
-    let deadcodes = rustc_check_deadcode(&unparsed);
-    // Reparsing is necessary to produce correct spans for items
-    let mut reparsed = reparse(&unparsed);
-    // fs::remove_file("src/bin/tmp.rs").expect("Failed to remove file src/bin/tmp.rs.");
-    remove_deadcodes(&mut reparsed, &deadcodes, false);
+    // Open the root module `src/lib.rs` and its children, and merge into one string
+    let source = load_recursive_simple("src/lib");
+
+    // Run rustc to get `dead_code` warnings
+    let deadcodes = rustc_check_deadcode(&source);
+    // Parse the source into a `syn` AST and remove dead codes
+    // which are module-level functions and impl items
+    let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
+    remove_deadcodes(&mut ast, &deadcodes, false);
 
     // Bruteforce removing items one by one
-    // try_remove_one_item(&mut reparsed);
-    let unparsed = prettyplease::unparse(&reparsed);
-    let bleached = try_remove_one_item7(&unparsed);
+    let source = prettyplease::unparse(&ast);
+    let bleached = try_remove_one_item(&source);
+
     // Remove dead code again, allowing structs and enums to be removed this time
     let deadcodes = rustc_check_deadcode(&bleached);
-    let mut reparsed = reparse(&bleached);
-    remove_deadcodes(&mut reparsed, &deadcodes, true);
-    let unparsed = prettyplease::unparse(&reparsed);
+    let mut ast = reparse(&bleached);
+    remove_deadcodes(&mut ast, &deadcodes, true);
+    let source = prettyplease::unparse(&ast);
     // Write out the final result
     let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
-    fs::write("src/bin/main.rs", &unparsed).expect("Failed to write to the file src/bin/main.rs.");
+    fs::write("src/bin/main.rs", &source).expect("Failed to write to the file src/bin/main.rs.");
 }
 
-// utility to avoid repeated unparse calls
+// A helper to replace sections of code with spaces ("bleach")
 #[derive(Clone)]
-struct Src2 {
+struct Src {
     src: Vec<u8>,
 }
 
-impl Src2 {
+impl Src {
     fn new(src: &str) -> Self {
         let src_bytes = src.as_bytes().to_vec();
         Self {
@@ -63,16 +59,17 @@ impl Src2 {
     }
 }
 
-fn try_remove_one_item7(src: &str) -> String {
+fn try_remove_one_item(src: &str) -> String {
     fn inner(src: &str) -> Result<String, Box<dyn std::error::Error>> {
         let rt = Runtime::new()?;
         rt.block_on(async {
-            let mut src2 = Src2::new(src);
+            let mut src2 = Src::new(src);
             let syn_file = syn::parse_file(src)?;
-            let positions = item_positions3(&syn_file);
+            let positions = item_positions(&syn_file);
             let mut spans = positions.iter().map(|x| x.1).collect::<VecDeque<_>>();
             let mut futures = VecDeque::new();
             let mut failed = VecDeque::new();
+            // Test one-item deletions sequentially and cyclically until a whole cycle fails
             loop {
                 if futures.len() < 5 && !spans.is_empty() {
                     let span = spans.pop_front().unwrap();
@@ -111,9 +108,9 @@ fn offset(span: (usize, usize), start: usize) -> (usize, usize) {
     (span.0 - start, span.1 - start)
 }
 
-fn item_positions3(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
-    // extract positions of mod-level items that are trait defs, and impl blocks
-    // no mods because it will be removed at next dead_code pass
+fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
+    // Extract positions of mod-level items that are trait defs, and impl blocks
+    // No mods because it will be removed at next dead_code pass
     let root_span = span_to_bytes(root.span());
     let mut positions = vec![];
     let mut pos_items = Vec::new();
@@ -205,6 +202,7 @@ fn remove_deadcodes(file: &mut syn::File, deadcodes: &HashSet<RawIdent>, remove_
     deleter.visit_file_mut(file);
 }
 
+// A mut visitor on syn AST to remove indicated items
 struct DeadCodeRemover {
     items: HashSet<RawIdent>,
     remove_structs: bool,
@@ -221,11 +219,14 @@ impl DeadCodeRemover {
 
 fn item_raw_ident(item: &syn::Item, remove_structs: bool) -> Option<RawIdent> {
     match item {
+        // const, fn, type: always remove
         | syn::Item::Const(syn::ItemConst{ident, ..})
         | syn::Item::Fn(syn::ItemFn{sig: syn::Signature{ident, ..}, ..})
         | syn::Item::Type(syn::ItemType{ident, ..}) => Some(ident.into()),
+        // struct, enum: remove on request
         | syn::Item::Struct(syn::ItemStruct{ident, ..})
         | syn::Item::Enum(syn::ItemEnum{ident, ..}) => Some(ident.into()).filter(|_| remove_structs),
+        // rest: ignore
         _ => None
     }
 }
@@ -304,7 +305,6 @@ fn rustc_check_deadcode(source: &str) -> HashSet<RawIdent> {
             deadcodes.insert(RawIdent::new(item_name, line_start, column_start-1, line_end, column_end-1));
         }
     }
-    // println!("{}", cargo_check_output);
     deadcodes
 }
 
@@ -397,11 +397,6 @@ fn load_recursive_simple(path: &str) -> String {
         let inner_file = load_recursive_simple(&child_path(path, mod_name));
         format!("{}{{{}}}", mod_statement.trim_end_matches(";"), inner_file)
     });
-    // Remove all indentations
-    static WS_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"\n[ \t]+").unwrap()
-    });
-    let modified_src = WS_REGEX.replace_all(&modified_src, "\n");
     modified_src.replacen("#![allow(dead_code)]", "", if path == "src/lib" { 1 } else { 0 })
 }
 
