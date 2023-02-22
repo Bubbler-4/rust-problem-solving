@@ -1,2 +1,2 @@
 tasks:
-  - init: mkdir /tmp/ramdisk && chmod 777 /tmp/ramdisk && sudo mount -t tmpfs -o size=64m myramdisk /tmp/ramdisk; cd cargo-oj; cargo install --path .; cd ..
+  - command: mkdir /tmp/ramdisk && chmod 777 /tmp/ramdisk && sudo mount -t tmpfs -o size=64m myramdisk /tmp/ramdisk; cd cargo-oj; cargo install --path .; cd ..
