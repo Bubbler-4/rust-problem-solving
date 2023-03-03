@@ -1,12 +1,12 @@
 #![allow(dead_code)]
-#[allow(unused_imports)]
+#![allow(unused_imports)]
 use std::collections::*;
-#[allow(unused_imports)]
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 #[allow(clippy::all)]
 #[allow(unused_must_use)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
+    let _dj = graph::DisjointSet::new(10);
     let lines = (0..5).map(|_| ii.get(NB).unwrap().0).collect::<Vec<_>>();
     let buf = (0..15).flat_map(|i| (0..5).map(move |j| (i, j))).flat_map(|(i,j)| lines[j].get(i)).copied().collect::<Vec<_>>();
     oo.write(&buf);
@@ -14,6 +14,8 @@ fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
 }
 
 mod prime;
+mod graph;
+/// IO template
 mod io;
 use io::*;
 

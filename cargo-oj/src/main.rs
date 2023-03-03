@@ -6,30 +6,28 @@ use serde_json::Value;
 use syn::visit_mut::{self, VisitMut};
 use syn::spanned::Spanned;
 use proc_macro2::Span;
-use tokio::runtime::Runtime;
+use tokio::runtime;
 use tokio::io::AsyncWriteExt;
-use regex::Regex;
-use once_cell::sync::Lazy;
 
 fn main() {
     // Open the root module `src/lib.rs` and its children, and merge into one string
-    let source = load_recursive_simple("src/lib");
+    let file = load_recursive("src/lib");
+    let source = prettyplease::unparse(&file);
 
-    // Run rustc to get `dead_code` warnings
-    let deadcodes = rustc_check_deadcode(&source);
-    // Parse the source into a `syn` AST and remove dead codes
-    // which are module-level functions and impl items
+    // Run rustc to get unused warnings
+    let unused = rustc_check_unused(&source);
+    // Parse the source into a `syn` AST and remove unused codes
     let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
-    remove_deadcodes(&mut ast, &deadcodes, false);
+    remove_unused(&mut ast, &unused);
 
     // Bruteforce removing items one by one
     let source = prettyplease::unparse(&ast);
     let bleached = try_remove_one_item(&source);
 
-    // Remove dead code again, allowing structs and enums to be removed this time
-    let deadcodes = rustc_check_deadcode(&bleached);
+    // Remove unused code again
+    let unused = rustc_check_unused(&bleached);
     let mut ast = reparse(&bleached);
-    remove_deadcodes(&mut ast, &deadcodes, true);
+    remove_unused(&mut ast, &unused);
     let source = prettyplease::unparse(&ast);
     // Write out the final result
     let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
@@ -61,7 +59,8 @@ impl Src {
 
 fn try_remove_one_item(src: &str) -> String {
     fn inner(src: &str) -> Result<String, Box<dyn std::error::Error>> {
-        let rt = Runtime::new()?;
+        // let rt = Runtime::new()?;
+        let rt = runtime::Builder::new_current_thread().enable_io().build()?;
         rt.block_on(async {
             let mut src2 = Src::new(src);
             let syn_file = syn::parse_file(src)?;
@@ -71,7 +70,7 @@ fn try_remove_one_item(src: &str) -> String {
             let mut failed = VecDeque::new();
             // Test one-item deletions sequentially and cyclically until a whole cycle fails
             loop {
-                if futures.len() < 5 && !spans.is_empty() {
+                if futures.len() < 4 && !spans.is_empty() {
                     let span = spans.pop_front().unwrap();
                     let mut modified_src = src2.clone();
                     modified_src.bleach(span);
@@ -164,121 +163,148 @@ async fn rustc_check_success_async(source: &str) -> bool {
     inner(source).await.unwrap()
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct RawIdent {
-    name: String,
-    line_start: u64,
-    column_start: u64,
-    line_end: u64,
-    column_end: u64,
-}
+// byte offset start, end
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+struct RawSpan(usize, usize);
 
-impl RawIdent {
-    fn new(name: &str, line_start: u64, column_start: u64, line_end: u64, column_end: u64) -> Self {
-        Self {
-            name: name.to_owned(),
-            line_start,
-            column_start,
-            line_end,
-            column_end,
-        }
+impl<T> From<T> for RawSpan where T: syn::spanned::Spanned {
+    fn from(value: T) -> Self {
+        let span = span_to_bytes(value.span());
+        Self(span.0, span.1)
     }
-}
-
-impl From<&syn::Ident> for RawIdent {
-    fn from(value: &syn::Ident) -> Self {
-        Self {
-            name: format!("{}", value),
-            line_start: value.span().start().line as u64,
-            column_start: value.span().start().column as u64,
-            line_end: value.span().end().line as u64,
-            column_end: value.span().end().column as u64,
-        }
-    }
-}
-
-fn remove_deadcodes(file: &mut syn::File, deadcodes: &HashSet<RawIdent>, remove_structs: bool) {
-    let mut deleter = DeadCodeRemover::new(deadcodes, remove_structs);
-    deleter.visit_file_mut(file);
 }
 
 // A mut visitor on syn AST to remove indicated items
-struct DeadCodeRemover {
-    items: HashSet<RawIdent>,
-    remove_structs: bool,
+struct UnusedRemover {
+    items: HashSet<RawSpan>,
+    start: usize,
 }
 
-impl DeadCodeRemover {
-    fn new(deadcodes: &HashSet<RawIdent>, remove_structs: bool) -> Self {
+impl UnusedRemover {
+    fn new(file: &syn::File, deadcodes: &HashSet<RawSpan>) -> Self {
         Self {
             items: deadcodes.clone(),
-            remove_structs
+            start: RawSpan::from(file).0,
         }
     }
 }
 
-fn item_raw_ident(item: &syn::Item, remove_structs: bool) -> Option<RawIdent> {
-    match item {
-        // const, fn, type: always remove
-        | syn::Item::Const(syn::ItemConst{ident, ..})
-        | syn::Item::Fn(syn::ItemFn{sig: syn::Signature{ident, ..}, ..})
-        | syn::Item::Type(syn::ItemType{ident, ..}) => Some(ident.into()),
-        // struct, enum: remove on request
-        | syn::Item::Struct(syn::ItemStruct{ident, ..})
-        | syn::Item::Enum(syn::ItemEnum{ident, ..}) => Some(ident.into()).filter(|_| remove_structs),
-        // rest: ignore
-        _ => None
+fn remove_unused(file: &mut syn::File, unused: &HashSet<RawSpan>) {
+    let mut deleter = UnusedRemover::new(file, unused);
+    deleter.visit_file_mut(file);
+}
+
+// is current tree a single path (path* (name | rename | glob))?
+fn is_single_use_path(tree: &syn::UseTree) -> bool {
+    match tree {
+        syn::UseTree::Path(syn::UsePath{tree, ..}) => is_single_use_path(tree),
+        syn::UseTree::Name(_) => true,
+        syn::UseTree::Rename(_) => true,
+        syn::UseTree::Glob(_) => true,
+        syn::UseTree::Group(_) => false,
     }
 }
 
-fn remove_items(items: &mut Vec<syn::Item>, to_remove: &mut HashSet<RawIdent>, remove_structs: bool) {
-    items.retain(|item| {
-        if let Some(raw_ident) = item_raw_ident(item, remove_structs) {
-            !to_remove.remove(&raw_ident)
-        } else { true }
-    });
+impl UnusedRemover {
+    fn node_span<T>(&self, node: &T) -> RawSpan where T: syn::spanned::Spanned {
+        let span = offset(span_to_bytes(node.span()), self.start);
+        RawSpan(span.0, span.1)
+    }
+
+    // if current tree is single path, test on entire path directly
+    // otherwise recurse
+    // if current tree is group, recurse over all children and remove deleted ones.
+    // the node survives if it is still nonempty
+    fn use_should_survive(&mut self, tree: &mut syn::UseTree) -> bool {
+        if is_single_use_path(tree) {
+            let span = self.node_span(tree);
+            return !self.items.remove(&span);
+        }
+        match tree {
+            syn::UseTree::Path(syn::UsePath{tree, ..}) => self.use_should_survive(tree),
+            syn::UseTree::Group(syn::UseGroup{items, ..}) => {
+                let mut v = vec![];
+                while let Some(pair) = items.pop() {
+                    let mut subtree = pair.into_value();
+                    if self.use_should_survive(&mut subtree) {
+                        v.push(subtree);
+                    }
+                }
+                while let Some(subtree) = v.pop() {
+                    items.push(subtree);
+                }
+                !items.is_empty()
+            },
+            _ => unreachable!()
+        }
+    }
+    
+    // if cur item is use, recursively remove individual imports and empty groups,
+    // and return true if the use item itself should survive, false otherwise
+    // else if fn/const/type/struct/enum, return true if it should survive based on its ident
+    // do not touch other kinds of items (which means they always survive)
+    fn should_survive(&mut self, item: &mut syn::Item) -> bool {
+        match item {
+            | syn::Item::Const(syn::ItemConst{ident, ..})
+            | syn::Item::Fn(syn::ItemFn{sig: syn::Signature{ident, ..}, ..})
+            | syn::Item::Type(syn::ItemType{ident, ..})
+            | syn::Item::Struct(syn::ItemStruct{ident, ..})
+            | syn::Item::Enum(syn::ItemEnum{ident, ..}) => !self.items.remove(&self.node_span(ident)),
+            syn::Item::Use(syn::ItemUse{tree, ..}) => self.use_should_survive(tree),
+            _ => true,
+        }
+    }
+    
+    fn remove_items2(&mut self, items: &mut Vec<syn::Item>) {
+        items.retain_mut(|item| {
+            self.should_survive(item)
+        });
+    }
 }
 
-fn remove_empty_submodules(items: &mut Vec<syn::Item>) {
+fn remove_empty_items(items: &mut Vec<syn::Item>) {
     items.retain(|item| {
         if let syn::Item::Mod(module) = item {
             if let Some((_, ref items)) = module.content {
                 !items.is_empty()
             } else { true }
+        } else if let syn::Item::Impl(syn::ItemImpl{items, ..}) = item {
+            !items.is_empty()
         } else { true }
     });
 }
 
-impl VisitMut for DeadCodeRemover {
+impl VisitMut for UnusedRemover {
     fn visit_file_mut(&mut self, i: &mut syn::File) {
-        remove_items(&mut i.items, &mut self.items, self.remove_structs);
+        self.remove_items2(&mut i.items);
         visit_mut::visit_file_mut(self, i);
-        remove_empty_submodules(&mut i.items);
+        remove_empty_items(&mut i.items);
     }
     fn visit_item_mod_mut(&mut self, i: &mut syn::ItemMod) {
         // At each module, scan over its child items and remove matching items
         if let Some((_, ref mut items)) = i.content {
-            remove_items(items, &mut self.items, self.remove_structs);
+            self.remove_items2(items);
         }
         visit_mut::visit_item_mod_mut(self, i);
         // After all children (including child modules) are visited, check for empty modules
         if let Some((_, ref mut items)) = i.content {
-            remove_empty_submodules(items);
+            remove_empty_items(items);
         }
     }
     fn visit_item_impl_mut(&mut self, i: &mut syn::ItemImpl) {
-        // Remove associated functions detected as dead code
+        // Remove associated functions and constants detected as dead code
         i.items.retain(|item| {
-            if let syn::ImplItem::Method(syn::ImplItemMethod{sig: syn::Signature{ident, ..}, ..}) = item {
-                let raw_ident = RawIdent::from(ident);
-                !self.items.remove(&raw_ident)
-            } else { true }
+            match item {
+                | syn::ImplItem::Method(syn::ImplItemMethod{sig: syn::Signature{ident, ..}, ..})
+                | syn::ImplItem::Const(syn::ImplItemConst{ident, ..}) => !self.items.remove(&self.node_span(ident)),
+                _ => true
+            }
         });
         visit_mut::visit_item_impl_mut(self, i);
     }
 }
 
-fn rustc_check_deadcode(source: &str) -> HashSet<RawIdent> {
+fn rustc_check_unused(source: &str) -> HashSet<RawSpan> {
     let mut rustc_check = Command::new("rustc");
     rustc_check
         .args(["--emit=mir", "--edition", "2021", "--error-format", "json", "--out-dir=/tmp/ramdisk", "-"])
@@ -290,22 +316,23 @@ fn rustc_check_deadcode(source: &str) -> HashSet<RawIdent> {
     stdin.write_all(source.as_bytes()).expect("Failed to write to rustc's stdin.");
     let rustc_check_stdout = child.wait_with_output().expect("Failed to open rustc's stdout.");
     let rustc_check_output = String::from_utf8(rustc_check_stdout.stderr).unwrap();
-    let mut deadcodes = HashSet::new();
+    let mut unused = HashSet::new();
     for line in rustc_check_output.lines() {
         let Ok(obj) = line.parse::<Value>() else { continue; };
-        if obj.pointer("/code/code") != Some(&Value::from("dead_code")) { continue; }
-        if let (Some(span), Some(Value::String(message))) = (obj.pointer("/spans/0"), obj.pointer("/message")) {
-            let line_start = span.pointer("/line_start").unwrap().as_u64().unwrap();
-            let line_end = span.pointer("/line_end").unwrap().as_u64().unwrap();
-            let column_start = span.pointer("/column_start").unwrap().as_u64().unwrap();
-            let column_end = span.pointer("/column_end").unwrap().as_u64().unwrap();
-            let mut split = message.split('`');
-            let _item_kind = split.next().unwrap().trim_end();
-            let item_name = split.next().unwrap();
-            deadcodes.insert(RawIdent::new(item_name, line_start, column_start-1, line_end, column_end-1));
+        let warning = obj.pointer("/code/code");
+        if warning == Some(&Value::from("dead_code")) || warning == Some(&Value::from("unused_imports")) {
+            let Some(spans) = obj.pointer("/spans") else { continue; };
+            let Some(spans) = spans.as_array() else { continue; };
+            for span in spans {
+                let is_primary = span.pointer("/is_primary").unwrap().as_bool().unwrap();
+                if !is_primary { continue; }
+                let byte_start = span.pointer("/byte_start").unwrap().as_u64().unwrap() as usize;
+                let byte_end = span.pointer("/byte_end").unwrap().as_u64().unwrap() as usize;
+                unused.insert(RawSpan(byte_start, byte_end));
+            }
         }
     }
-    deadcodes
+    unused
 }
 
 fn reparse(src: &str) -> syn::File {
@@ -345,7 +372,7 @@ fn load_recursive(path: &str) -> syn::File {
     syntax.attrs.retain(|attr| {
         if !attr.path.is_ident("allow") { return true; }
         if let Ok(ident) = attr.parse_args::<syn::Ident>() {
-            if ident == "dead_code" { return false; }
+            if ident == "dead_code" || ident == "unused_imports" { return false; }
         }
         true
     });
@@ -364,40 +391,6 @@ fn load_recursive(path: &str) -> syn::File {
         }
     }
     syntax
-}
-
-fn load_recursive_simple(path: &str) -> String {
-    // Supports only standard module path structure (lib.rs, m1.rs, m1/m2.rs).
-    // Not supported:
-    // - mod.rs style module path
-    // - custom path attributes
-    // - non-inline modules inside inline modules
-    // - mod declaration in comments
-
-    // Try <path>.rs unless the current path is the src root ("src/lib")
-    let file_path = if path == "src/lib" { "src/lib.rs".to_owned() } else { format!("{}.rs", path) };
-    let file = fs::read_to_string(&file_path);
-    let src = file.unwrap_or_else(|_| {
-        if path == "src/lib" {
-            eprintln!("Failed to read the file {}.", file_path);
-            eprintln!("Please make sure to run at the crate root of a lib crate, and the crate builds correctly.");
-        } else {
-            eprintln!("Failed to read the file {}.", file_path);
-            eprintln!("Please make sure that the crate builds correctly.");
-        }
-        panic!()
-    });
-    // Search the current file for `mod<whitespace><ident><whitespace>;`
-    static MOD_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"mod[ \n\t]+([a-z][a-z0-9_]*)[ \n\t]*;").unwrap()
-    });
-    let modified_src = MOD_REGEX.replace_all(&src, |cap: &regex::Captures| {
-        let mod_statement = &cap[0usize];
-        let mod_name = &cap[1usize];
-        let inner_file = load_recursive_simple(&child_path(path, mod_name));
-        format!("{}{{{}}}", mod_statement.trim_end_matches(";"), inner_file)
-    });
-    modified_src.replacen("#![allow(dead_code)]", "", if path == "src/lib" { 1 } else { 0 })
 }
 
 fn child_path(path: &str, module: &str) -> String {

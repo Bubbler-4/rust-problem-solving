@@ -1,10 +1,7 @@
-#[allow(unused_imports)]
-use std::collections::*;
-#[allow(unused_imports)]
-use std::cmp::{Reverse, Ordering::{self, *}};
 #[allow(clippy::all)]
 #[allow(unused_must_use)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
+    let _dj = graph::DisjointSet::new(10);
     let lines = (0..5).map(|_| ii.get(NB).unwrap().0).collect::<Vec<_>>();
     let buf = (0..15)
         .flat_map(|i| (0..5).map(move |j| (i, j)))
@@ -14,6 +11,21 @@ fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
     oo.write(&buf);
     None
 }
+mod graph {
+    /// Disjoint set
+    pub(crate) struct DisjointSet {
+        parent: Vec<usize>,
+        rank: Vec<usize>,
+    }
+    impl DisjointSet {
+        pub(crate) fn new(n: usize) -> Self {
+            let parent = (0..n).collect();
+            let rank = vec![0; n];
+            Self { parent, rank }
+        }
+    }
+}
+/// IO template
 mod io {
     pub(crate) use std::io::{Write, stdin, stdout, BufWriter, BufRead};
     pub(crate) struct I<R: BufRead> {
