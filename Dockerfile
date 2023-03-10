@@ -6,5 +6,5 @@ RUN apt-get update -y -q && apt-get upgrade -y -q \
   firefox fonts-noto-cjk fonts-noto-color-emoji
 
 USER gitpod
-RUN rustup update
+RUN rustup toolchain uninstall stable && rustup toolchain install stable
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
