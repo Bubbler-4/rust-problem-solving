@@ -6,10 +6,16 @@ use std::cmp::{Reverse, Ordering::{self, *}};
 #[allow(clippy::all)]
 #[allow(unused_must_use)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    let _dj = graph::DisjointSet::new(10);
-    let lines = (0..5).map(|_| ii.get(NB).unwrap().0).collect::<Vec<_>>();
-    let buf = (0..15).flat_map(|i| (0..5).map(move |j| (i, j))).flat_map(|(i,j)| lines[j].get(i)).copied().collect::<Vec<_>>();
-    oo.write(&buf);
+    let a = ii.get([0usize; 10])?;
+    let b = ii.get([0usize; 10])?;
+    let a_wins = (0..10).filter(|&i| a[i] > b[i]).count();
+    let b_wins = (0..10).filter(|&i| a[i] < b[i]).count();
+    let ans = match a_wins.cmp(&b_wins) {
+        Less => 'B',
+        Equal => 'D',
+        Greater => 'A',
+    };
+    writeln!(oo, "{}", ans);
     None
 }
 

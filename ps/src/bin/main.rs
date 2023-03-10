@@ -1,29 +1,18 @@
+use std::cmp::Ordering::*;
 #[allow(clippy::all)]
 #[allow(unused_must_use)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    let _dj = graph::DisjointSet::new(10);
-    let lines = (0..5).map(|_| ii.get(NB).unwrap().0).collect::<Vec<_>>();
-    let buf = (0..15)
-        .flat_map(|i| (0..5).map(move |j| (i, j)))
-        .flat_map(|(i, j)| lines[j].get(i))
-        .copied()
-        .collect::<Vec<_>>();
-    oo.write(&buf);
+    let a = ii.get([0usize; 10])?;
+    let b = ii.get([0usize; 10])?;
+    let a_wins = (0..10).filter(|&i| a[i] > b[i]).count();
+    let b_wins = (0..10).filter(|&i| a[i] < b[i]).count();
+    let ans = match a_wins.cmp(&b_wins) {
+        Less => 'B',
+        Equal => 'D',
+        Greater => 'A',
+    };
+    writeln!(oo, "{}", ans);
     None
-}
-mod graph {
-    /// Disjoint set
-    pub(crate) struct DisjointSet {
-        parent: Vec<usize>,
-        rank: Vec<usize>,
-    }
-    impl DisjointSet {
-        pub(crate) fn new(n: usize) -> Self {
-            let parent = (0..n).collect();
-            let rank = vec![0; n];
-            Self { parent, rank }
-        }
-    }
 }
 /// IO template
 mod io {
@@ -60,20 +49,28 @@ mod io {
     pub(crate) trait Fill {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
     }
-    pub(crate) struct Line<T, const B: bool>(pub T);
-    impl<const B: bool> Fill for Line<Vec<u8>, B> {
+    const WS: [char; 3] = [' ', '\n', '\r'];
+    impl Fill for usize {
         fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-            if B {
+            i.rem = i.rem.trim_start_matches(WS);
+            while i.rem.is_empty() {
                 i.next_line()?;
+                i.rem = i.rem.trim_start_matches(WS);
             }
-            let s = i.rem.strip_suffix('\n').unwrap_or(i.rem);
-            i.rem = "";
-            self.0.extend_from_slice(s.as_bytes());
+            let tok = i.rem.split(WS).next().unwrap();
+            i.rem = &i.rem[tok.len()..];
+            *self = tok.parse().ok()?;
             Some(())
         }
     }
-    pub(crate) const B: Vec<u8> = Vec::new();
-    pub(crate) const NB: Line<Vec<u8>, true> = Line(B);
+    impl<T: Fill, const N: usize> Fill for [T; N] {
+        fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+            for ii in self.iter_mut() {
+                ii.fill_from_input(i)?;
+            }
+            Some(())
+        }
+    }
 }
 use io::*;
 pub fn main() {
