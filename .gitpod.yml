@@ -1,4 +1,4 @@
 image:
   file: Dockerfile
 tasks:
-  - init: mkdir /tmp/ramdisk; cargo install --path cargo-oj
+  - init: mkdir /tmp/ramdisk; cargo install --path cargo-oj; cargo install --path cargo-boj

@@ -8,3 +8,4 @@ RUN apt-get update -y -q && apt-get upgrade -y -q \
 USER gitpod
 RUN rustup toolchain uninstall stable && rustup toolchain install stable
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+RUN cargo install geckodriver
