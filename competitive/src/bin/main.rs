@@ -4,7 +4,7 @@ use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
 #[allow(clippy::all)]
-fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
+fn solve<R: BufRead, W: Write>(_ii: &mut I<R>, _oo: &mut W) -> Option<()> {
     None
 }
 

@@ -1,4 +1,7 @@
 #!/bin/bash
 cargo oj
-cargo build --bin main --tests --release
-BOJ=$1 cargo test --test test --release -- --nocapture && cargo boj submit $1
+if cargo boj test $1 && [ "$2" = 'go' ]; then
+    cargo boj submit $1
+else
+    echo 'Test successful, but not submitted.'
+fi

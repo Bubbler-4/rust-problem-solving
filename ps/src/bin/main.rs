@@ -1,17 +1,11 @@
-use std::cmp::Ordering::*;
 #[allow(clippy::all)]
 #[allow(unused_must_use)]
 fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    let a = ii.get([0usize; 10])?;
-    let b = ii.get([0usize; 10])?;
-    let a_wins = (0..10).filter(|&i| a[i] > b[i]).count();
-    let b_wins = (0..10).filter(|&i| a[i] < b[i]).count();
-    let ans = match a_wins.cmp(&b_wins) {
-        Less => 'B',
-        Equal => 'D',
-        Greater => 'A',
+    let [t, s] = ii.get([0usize; 2])?;
+    match (t, s) {
+        (12..=16, 0) => writeln!(oo, "320"),
+        _ => writeln!(oo, "280"),
     };
-    writeln!(oo, "{}", ans);
     None
 }
 /// IO template
