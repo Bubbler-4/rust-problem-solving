@@ -1,0 +1,3 @@
+[submodule "cargo-boj"]
+	path = cargo-boj
+	url = https://github.com/Bubbler-4/cargo-boj.git
