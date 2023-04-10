@@ -268,8 +268,8 @@ fn remove_empty_items(items: &mut Vec<syn::Item>) {
             if let Some((_, ref items)) = module.content {
                 !items.is_empty()
             } else { true }
-        } else if let syn::Item::Impl(syn::ItemImpl{items, ..}) = item {
-            !items.is_empty()
+        } else if let syn::Item::Impl(syn::ItemImpl{items, trait_, ..}) = item {
+            trait_.is_some() || !items.is_empty()
         } else { true }
     });
 }
@@ -295,7 +295,7 @@ impl VisitMut for UnusedRemover {
         // Remove associated functions and constants detected as dead code
         i.items.retain(|item| {
             match item {
-                | syn::ImplItem::Method(syn::ImplItemMethod{sig: syn::Signature{ident, ..}, ..})
+                | syn::ImplItem::Fn(syn::ImplItemFn{sig: syn::Signature{ident, ..}, ..})
                 | syn::ImplItem::Const(syn::ImplItemConst{ident, ..}) => !self.items.remove(&self.node_span(ident)),
                 _ => true
             }
@@ -370,7 +370,7 @@ fn load_recursive(path: &str) -> syn::File {
 
     // If the current file is root, remove #![allow(dead_code)]
     syntax.attrs.retain(|attr| {
-        if !attr.path.is_ident("allow") { return true; }
+        if !attr.path().is_ident("allow") { return true; }
         if let Ok(ident) = attr.parse_args::<syn::Ident>() {
             if ident == "dead_code" || ident == "unused_imports" { return false; }
         }
