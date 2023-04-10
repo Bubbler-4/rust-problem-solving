@@ -37,7 +37,7 @@ pub(crate) fn convex_hull(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64
                     Greater => { lower.push((x, y)); break 'lower; }
                 }
             }
-            if x > lower[0].0 { lower.push((x, y)); }
+            lower.push((x, y));
         }
         'upper: {
             while upper.len() >= 2 {
