@@ -20,7 +20,7 @@ impl Ord for Frac {
 }
 
 /// (x, y) pts -> (upper hull, lower hull)
-pub(crate) fn convex_hull(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64)>) {
+pub(crate) fn convex_hull<const B: bool>(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64)>) {
     let mut v = pts.to_vec();
     v.sort_unstable(); // min x; min y
     let mut lower = vec![v[0]];
@@ -33,7 +33,7 @@ pub(crate) fn convex_hull(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64
                 let prod = (x2 - x1) * (y - y2) - (x - x2) * (y2 - y1);
                 match prod.cmp(&0) {
                     Less => { lower.pop(); }
-                    Equal => { lower.pop(); lower.push((x, y)); break 'lower; }
+                    Equal => { if !B { lower.pop(); } lower.push((x, y)); break 'lower; }
                     Greater => { lower.push((x, y)); break 'lower; }
                 }
             }
@@ -46,7 +46,7 @@ pub(crate) fn convex_hull(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64
                 let prod = (x2 - x1) * (y - y2) - (x - x2) * (y2 - y1);
                 match prod.cmp(&0) {
                     Less => { upper.push((x, y)); break 'upper; }
-                    Equal => { upper.pop(); upper.push((x, y)); break 'upper; }
+                    Equal => { if !B { upper.pop(); } upper.push((x, y)); break 'upper; }
                     Greater => { upper.pop(); }
                 }
             }
