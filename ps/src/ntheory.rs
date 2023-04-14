@@ -45,3 +45,11 @@ pub(crate) fn isqrt_ceil(n: usize) -> usize {
     }
     if x * x == n { x } else { x + 1 }
 }
+
+pub(crate) fn gcd(a: usize, b: usize) -> usize {
+    let mut x = (a, b);
+    while x.1 > 0 {
+        x = (x.1, x.0 % x.1);
+    }
+    x.0
+}
