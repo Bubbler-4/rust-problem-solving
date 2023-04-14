@@ -29,9 +29,19 @@ fn main() {
     let mut ast = reparse(&bleached);
     remove_unused(&mut ast, &unused);
     let source = prettyplease::unparse(&ast);
+
+    // Replace leading indents with tabs
+    let mut final_source = String::new();
+    for line in source.lines() {
+        let leading_spaces = line.bytes().take_while(|&b| b == b' ').count();
+        final_source.push_str(&"\t".repeat(leading_spaces / 4));
+        final_source.push_str(&line[leading_spaces / 4 * 4..]);
+        final_source.push('\n');
+    }
+
     // Write out the final result
     let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
-    fs::write("src/bin/main.rs", &source).expect("Failed to write to the file src/bin/main.rs.");
+    fs::write("src/bin/main.rs", &final_source).expect("Failed to write to the file src/bin/main.rs.");
 }
 
 // A helper to replace sections of code with spaces ("bleach")
@@ -69,6 +79,7 @@ fn try_remove_one_item(src: &str) -> String {
             let mut futures = VecDeque::new();
             let mut failed = VecDeque::new();
             // Test one-item deletions sequentially and cyclically until a whole cycle fails
+            let mut after_success_counter = 0usize;
             loop {
                 if futures.len() < 4 && !spans.is_empty() {
                     let span = spans.pop_front().unwrap();
@@ -83,6 +94,10 @@ fn try_remove_one_item(src: &str) -> String {
                     if success {
                         src2.bleach(span);
                         spans.append(&mut failed);
+                        after_success_counter = 3;
+                    } else if after_success_counter > 0 {
+                        spans.push_back(span);
+                        after_success_counter -= 1;
                     } else {
                         failed.push_back(span);
                     }
@@ -108,7 +123,10 @@ fn offset(span: (usize, usize), start: usize) -> (usize, usize) {
 }
 
 fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
-    // Extract positions of mod-level items that are trait defs, and impl blocks
+    // Extract positions of:
+    //   - mod-level items that are trait defs, and impl blocks
+    //   - impl blocks
+    //   - attributes on structs and enums (for #[derive(...)])
     // No mods because it will be removed at next dead_code pass
     let root_span = span_to_bytes(root.span());
     let mut positions = vec![];
@@ -117,6 +135,12 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
         match item {
             syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) => {
                 pos_items.push((vec![i], item));
+            }
+            syn::Item::Struct(syn::ItemStruct { attrs, .. }) | syn::Item::Enum(syn::ItemEnum { attrs, .. }) => {
+                for attr in attrs {
+                    let span = offset(span_to_bytes(attr.span()), root_span.0);
+                    positions.push((vec![], span));
+                }
             }
             _ => {}
         }
@@ -130,6 +154,12 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
                             let mut next_pos = pos.clone();
                             next_pos.push(i);
                             pos_items.push((next_pos, item));
+                        }
+                        syn::Item::Struct(syn::ItemStruct { attrs, .. }) | syn::Item::Enum(syn::ItemEnum { attrs, .. }) => {
+                            for attr in attrs {
+                                let span = offset(span_to_bytes(attr.span()), root_span.0);
+                                positions.push((pos.clone(), span));
+                            }
                         }
                         _ => {}
                     }
