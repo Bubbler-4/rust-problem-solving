@@ -54,7 +54,7 @@ impl DisjointSet {
         }
         n
     }
-    // returns true if union operation was done (set of n1 != set of n2)
+    /// returns true if union operation was done (set of n1 != set of n2)
     pub(crate) fn union(&mut self, n1: usize, n2: usize) -> bool {
         let mut n1 = self.find(n1);
         let mut n2 = self.find(n2);

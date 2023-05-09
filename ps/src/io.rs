@@ -149,6 +149,7 @@ impl Fill for i128 {
         Some(())
     }
 }
+#[derive(Clone)]
 pub(crate) struct Line<T, const B: bool>(pub T);
 impl Fill for String {
     fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
