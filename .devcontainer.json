@@ -1,5 +1,6 @@
 {
   "image": "mcr.microsoft.com/vscode/devcontainers/rust:latest",
+  "postCreateCommand": "git submodule update --init && cd cargo-boj && git checkout main && cd ..",
   "customizations": {
     "codespaces": {
       "repositories": {
