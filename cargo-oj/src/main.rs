@@ -127,13 +127,14 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     //   - mod-level items that are trait defs, and impl blocks
     //   - impl blocks
     //   - attributes on structs and enums (for #[derive(...)])
+    //   - macros
     // No mods because it will be removed at next dead_code pass
     let root_span = span_to_bytes(root.span());
     let mut positions = vec![];
     let mut pos_items = Vec::new();
     for (i, item) in root.items.iter().enumerate() {
         match item {
-            syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) => {
+            syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
                 pos_items.push((vec![i], item));
             }
             syn::Item::Struct(syn::ItemStruct { attrs, .. }) | syn::Item::Enum(syn::ItemEnum { attrs, .. }) => {
@@ -150,7 +151,7 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
             syn::Item::Mod(syn::ItemMod{content: Some((_, items)), ..}) => {
                 for (i, item) in items.iter().enumerate() {
                     match item {
-                        syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) => {
+                        syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
                             let mut next_pos = pos.clone();
                             next_pos.push(i);
                             pos_items.push((next_pos, item));
@@ -165,7 +166,7 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
                     }
                 }
             }
-            syn::Item::Trait(_) | syn::Item::Impl(_) => {
+            syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
                 let span = offset(span_to_bytes(item.span()), root_span.0);
                 positions.push((pos, span));
             }
