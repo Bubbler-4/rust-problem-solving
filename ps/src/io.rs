@@ -43,15 +43,15 @@ macro_rules! print_disp {
         )+
     }
 }
-print_disp!(usize, i64, String, &str);
+print_disp!(usize, i64, String, &str, char);
 print_disp!(u16, u32, u128);
 print_disp!(i16, i32, i128);
-impl Print for &[u8] {
+impl Print for [u8] {
     fn print<W: Write>(&self, w: &mut W) {
         w.write(self).unwrap();
     }
 }
-impl<T: Print> Print for &[T] {
+impl<T: Print> Print for [T] {
     fn print<W: Write>(&self, w: &mut W) {
         let mut iter = self.iter();
         if let Some(t) = iter.next() {
@@ -63,9 +63,14 @@ impl<T: Print> Print for &[T] {
         }
     }
 }
-impl<T: Print> Print for &T {
+impl<T: Print + ?Sized> Print for &T {
     fn print<W: Write>(&self, w: &mut W) {
         (*self).print(w);
+    }
+}
+impl<T> Print for Vec<T> where [T]: Print {
+    fn print<W: Write>(&self, w: &mut W) {
+        self[..].print(w);
     }
 }
 macro_rules! print_tuple {

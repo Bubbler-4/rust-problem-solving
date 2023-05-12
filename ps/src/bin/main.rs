@@ -1,33 +1,10 @@
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-	let [n, m] = io.get([0usize; 2])?;
-	let mut v = io.get(vec![0usize; n])?;
-	for _ in 0..m {
-		let [cmd, x, y] = io.get([0usize; 3])?;
-		match cmd {
-			1 => {
-				v[x - 1] = y;
-			}
-			2 => {
-				for i in x..=y {
-					v[i - 1] = 1 - v[i - 1];
-				}
-			}
-			3 => {
-				for i in x..=y {
-					v[i - 1] = 0;
-				}
-			}
-			4 => {
-				for i in x..=y {
-					v[i - 1] = 1;
-				}
-			}
-			_ => {}
-		}
-	}
-	io.put(&*v);
+	let k = io.get(0usize)?;
+	let b = io.get(B)?;
+	let ans = b.into_iter().step_by(k).collect::<Vec<_>>();
+	io.put(ans);
 	None
 }
 /// IO template
@@ -55,23 +32,17 @@ mod io {
 	pub(crate) trait Print {
 		fn print<W: Write>(&self, w: &mut W);
 	}
-	macro_rules! print_disp {
-		($($t:ty),+) => {
-			$(impl Print for $t { fn print < W : Write > (& self, w : & mut W) {
-			write!(w, "{}", self) .unwrap(); } })+
-		};
-	}
-	print_disp!(usize, i64, String, & str);
-	impl<T: Print> Print for &[T] {
+	impl Print for [u8] {
 		fn print<W: Write>(&self, w: &mut W) {
-			let mut iter = self.iter();
-			if let Some(t) = iter.next() {
-				t.print(w);
-			}
-			for t in iter {
-				w.write(b" ").unwrap();
-				t.print(w);
-			}
+			w.write(self).unwrap();
+		}
+	}
+	impl<T> Print for Vec<T>
+	where
+		[T]: Print,
+	{
+		fn print<W: Write>(&self, w: &mut W) {
+			self[..].print(w);
 		}
 	}
 	pub(crate) struct I<R: BufRead> {
@@ -117,22 +88,20 @@ mod io {
 		};
 	}
 	fill_num!(usize, i64, f64);
-	impl<T: Fill> Fill for Vec<T> {
+	impl Fill for Vec<u8> {
 		fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-			for ii in self.iter_mut() {
-				ii.fill_from_input(i)?;
+			i.rem = i.rem.trim_start_matches(WS);
+			while i.rem.is_empty() {
+				i.next_line()?;
+				i.rem = i.rem.trim_start_matches(WS);
 			}
+			let tok = i.rem.split(WS).next().unwrap();
+			i.rem = &i.rem[tok.len()..];
+			self.extend_from_slice(tok.as_bytes());
 			Some(())
 		}
 	}
-	impl<T: Fill, const N: usize> Fill for [T; N] {
-		fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-			for ii in self.iter_mut() {
-				ii.fill_from_input(i)?;
-			}
-			Some(())
-		}
-	}
+	pub(crate) const B: Vec<u8> = Vec::new();
 }
 use io::*;
 pub fn main() {
