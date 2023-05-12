@@ -5,19 +5,20 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
-fn solve<R: BufRead, W: Write>(ii: &mut I<R>, oo: &mut W) -> Option<()> {
-    let t = ii.get(0usize)?;
-    for _ in 0..t {
-        let line = ii.get(N)?.0.replace(' ', "");
-        let mut cnts = vec![0usize; 128];
-        for b in line.bytes() {
-            cnts[b as usize] += 1;
+fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
+    let [n, m] = io.get([0usize; 2])?;
+    let mut v = io.get(vec![0usize; n])?;
+    for _ in 0..m {
+        let [cmd, x, y] = io.get([0usize; 3])?;
+        match cmd {
+            1 => { v[x-1] = y; }
+            2 => { for i in x..=y { v[i-1] = 1 - v[i-1]; } }
+            3 => { for i in x..=y { v[i-1] = 0; } }
+            4 => { for i in x..=y { v[i-1] = 1; } }
+            _ => {}
         }
-        let max = *cnts.iter().max().unwrap();
-        let max_c = cnts.iter().enumerate().filter(|&(_, &x)| x == max).map(|(i, _)| i as u8 as char).collect::<String>();
-        if max_c.len() != 1 { writeln!(oo, "?"); }
-        else { writeln!(oo, "{}", max_c); }
     }
+    io.put(&*v);
     None
 }
 
@@ -33,10 +34,10 @@ mod io;
 use io::*;
 
 pub fn main() {
-    let stdin = stdin();
-    let mut ii = I::new(stdin.lock());
-    let stdout = stdout();
-    let stdout = stdout.lock();
-    let mut oo = BufWriter::new(stdout);
-    solve(&mut ii, &mut oo);
+    let stdin = stdin().lock();
+    // let mut ii = I::new(stdin.lock());
+    let stdout = stdout().lock();
+    // let mut oo = BufWriter::new(stdout);
+    let mut io = IO::new(stdin, stdout);
+    solve(&mut io);
 }

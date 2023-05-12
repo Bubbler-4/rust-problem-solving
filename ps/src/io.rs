@@ -1,4 +1,87 @@
 pub(crate) use std::io::{Write, stdin, stdout, BufWriter, BufRead};
+
+pub(crate) struct IO<R: BufRead, W: Write> {
+    ii: I<R>,
+    oo: BufWriter<W>,
+}
+impl<R: BufRead, W: Write> IO<R, W> {
+    pub(crate) fn new(r: R, w: W) -> Self {
+        Self {
+            ii: I::new(r),
+            oo: BufWriter::new(w),
+        }
+    }
+    pub(crate) fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
+        self.ii.get(exemplar)
+    }
+    pub(crate) fn put<T: Print>(&mut self, t: T) -> &mut Self {
+        t.print(&mut self.oo);
+        self
+    }
+    pub(crate) fn sp(&mut self) -> &mut Self {
+        self.put(" ")
+    }
+    pub(crate) fn nl(&mut self) -> &mut Self {
+        self.put("\n")
+    }
+    pub(crate) fn flush(&mut self) -> &mut Self {
+        self.oo.flush().unwrap();
+        self
+    }
+}
+pub(crate) trait Print {
+    fn print<W: Write>(&self, w: &mut W);
+}
+macro_rules! print_disp {
+    ($($t:ty),+) => {
+        $(
+            impl Print for $t {
+                fn print<W: Write>(&self, w: &mut W) {
+                    write!(w, "{}", self).unwrap();
+                }
+            }
+        )+
+    }
+}
+print_disp!(usize, i64, String, &str);
+print_disp!(u16, u32, u128);
+print_disp!(i16, i32, i128);
+impl Print for &[u8] {
+    fn print<W: Write>(&self, w: &mut W) {
+        w.write(self).unwrap();
+    }
+}
+impl<T: Print> Print for &[T] {
+    fn print<W: Write>(&self, w: &mut W) {
+        let mut iter = self.iter();
+        if let Some(t) = iter.next() {
+            t.print(w);
+        }
+        for t in iter {
+            w.write(b" ").unwrap();
+            t.print(w);
+        }
+    }
+}
+impl<T: Print> Print for &T {
+    fn print<W: Write>(&self, w: &mut W) {
+        (*self).print(w);
+    }
+}
+macro_rules! print_tuple {
+    ($(($t: ident, $($u: ident),+))+) => {
+        $(impl<$t: Print, $($u: Print),+> Print for ($t, $($u),+) {
+            fn print<WW: Write>(&self, w: &mut WW) {
+                #[allow(non_snake_case)]
+                let ($t, $($u),+) = self;
+                $t.print(w);
+                $(w.write(b" ").unwrap(); $u.print(w);)+
+            }
+        })+
+    }
+}
+print_tuple!((T, U) (T, U, V) (T, U, V, W) (T, U, V, W, X) (T, U, V, W, X, Y));
+
 pub(crate) struct I<R: BufRead> {
     r: R,
     line: String,
@@ -32,123 +115,26 @@ pub(crate) trait Fill {
     fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
 }
 const WS: [char; 3] = [' ', '\n', '\r'];
-impl Fill for usize {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
+macro_rules! fill_num {
+    ($($t: ty),+) => {
+        $(impl Fill for $t {
+            fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+                i.rem = i.rem.trim_start_matches(WS);
+                while i.rem.is_empty() {
+                    i.next_line()?;
+                    i.rem = i.rem.trim_start_matches(WS);
+                }
+                let tok = i.rem.split(WS).next().unwrap();
+                i.rem = &i.rem[tok.len()..];
+                *self = tok.parse().ok()?;
+                Some(())
+            }
+        })+
     }
 }
-impl Fill for i64 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for f64 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for u16 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for u32 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for u128 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for i16 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for i32 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
-impl Fill for i128 {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
-        while i.rem.is_empty() {
-            i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
-        }
-        let tok = i.rem.split(WS).next().unwrap();
-        i.rem = &i.rem[tok.len()..];
-        *self = tok.parse().ok()?;
-        Some(())
-    }
-}
+fill_num!(usize, i64, f64);
+fill_num!(u16, u32, u128);
+fill_num!(i16, i32, i128);
 #[derive(Clone)]
 pub(crate) struct Line<T, const B: bool>(pub T);
 impl Fill for String {
@@ -221,59 +207,16 @@ impl<T: Fill, const N: usize> Fill for [T; N] {
         Some(())
     }
 }
-impl<T: Fill, U: Fill> Fill for (T, U) {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        #[allow(non_snake_case)]
-        let (T, U) = self;
-        T.fill_from_input(i)?;
-        U.fill_from_input(i)?;
-        Some(())
+macro_rules! fill_tuple {
+    ($(($($t: ident),+))+) => {
+        $(impl<$($t: Fill),+> Fill for ($($t),+) {
+            fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
+                #[allow(non_snake_case)]
+                let ($($t),+) = self;
+                $($t.fill_from_input(i)?;)+
+                Some(())
+            }
+        })+
     }
 }
-impl<T: Fill, U: Fill, V: Fill> Fill for (T, U, V) {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        #[allow(non_snake_case)]
-        let (T, U, V) = self;
-        T.fill_from_input(i)?;
-        U.fill_from_input(i)?;
-        V.fill_from_input(i)?;
-        Some(())
-    }
-}
-impl<T: Fill, U: Fill, V: Fill, W: Fill> Fill for (T, U, V, W) {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        #[allow(non_snake_case)]
-        let (T, U, V, W) = self;
-        T.fill_from_input(i)?;
-        U.fill_from_input(i)?;
-        V.fill_from_input(i)?;
-        W.fill_from_input(i)?;
-        Some(())
-    }
-}
-impl<T: Fill, U: Fill, V: Fill, W: Fill, X: Fill> Fill for (T, U, V, W, X) {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        #[allow(non_snake_case)]
-        let (T, U, V, W, X) = self;
-        T.fill_from_input(i)?;
-        U.fill_from_input(i)?;
-        V.fill_from_input(i)?;
-        W.fill_from_input(i)?;
-        X.fill_from_input(i)?;
-        Some(())
-    }
-}
-impl<T: Fill, U: Fill, V: Fill, W: Fill, X: Fill, Y: Fill> Fill
-for (T, U, V, W, X, Y) {
-    fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        #[allow(non_snake_case)]
-        let (T, U, V, W, X, Y) = self;
-        T.fill_from_input(i)?;
-        U.fill_from_input(i)?;
-        V.fill_from_input(i)?;
-        W.fill_from_input(i)?;
-        X.fill_from_input(i)?;
-        Y.fill_from_input(i)?;
-        Some(())
-    }
-}
+fill_tuple!((T, U) (T, U, V) (T, U, V, W) (T, U, V, W, X) (T, U, V, W, X, Y));
