@@ -122,6 +122,21 @@ fn offset(span: (usize, usize), start: usize) -> (usize, usize) {
     (span.0 - start, span.1 - start)
 }
 
+fn mod_is_cfg_test(module: &syn::ItemMod) -> bool {
+    module.attrs.iter().any(|attr| {
+        let meta = &attr.meta;
+        if let syn::Meta::List(metalist) = meta {
+            if !metalist.path.is_ident("cfg") { return false; }
+            if let Ok(ident) = attr.parse_args::<syn::Ident>() {
+                return format!("{}", ident) == "test";
+            }
+            false
+        } else {
+            false
+        }
+    })
+}
+
 fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     // Extract positions of:
     //   - mod-level items that are trait defs, and impl blocks
@@ -148,6 +163,10 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     }
     while let Some((pos, item)) = pos_items.pop() {
         match item {
+            syn::Item::Mod(module) if mod_is_cfg_test(module) => {
+                let span = offset(span_to_bytes(item.span()), root_span.0);
+                positions.push((pos, span));
+            }
             syn::Item::Mod(syn::ItemMod{content: Some((_, items)), ..}) => {
                 for (i, item) in items.iter().enumerate() {
                     match item {
