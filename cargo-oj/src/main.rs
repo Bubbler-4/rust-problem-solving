@@ -18,7 +18,7 @@ fn main() {
     let unused = rustc_check_unused(&source);
     // Parse the source into a `syn` AST and remove unused codes
     let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
-    remove_unused(&mut ast, &unused);
+    remove_unused(&mut ast, &unused, &source);
 
     // Bruteforce removing items one by one
     let source = prettyplease::unparse(&ast);
@@ -27,7 +27,7 @@ fn main() {
     // Remove unused code again
     let unused = rustc_check_unused(&bleached);
     let mut ast = reparse(&bleached);
-    remove_unused(&mut ast, &unused);
+    remove_unused(&mut ast, &unused, &source);
     let source = prettyplease::unparse(&ast);
 
     // Replace leading indents with tabs
@@ -72,10 +72,15 @@ fn try_remove_one_item(src: &str) -> String {
         // let rt = Runtime::new()?;
         let rt = runtime::Builder::new_current_thread().enable_io().build()?;
         rt.block_on(async {
+            let char_indices = src.char_indices().map(|(i, _)| i).collect::<Vec<_>>();
             let mut src2 = Src::new(src);
             let syn_file = syn::parse_file(src)?;
             let positions = item_positions(&syn_file);
-            let mut spans = positions.iter().map(|x| x.1).collect::<VecDeque<_>>();
+            let mut spans = positions.iter().map(|&(_, (x, y))| (char_indices[x], char_indices[y])).collect::<VecDeque<_>>();
+            // for &(x, y) in &spans {
+            //     eprintln!("{} {}", x, y);
+            //     eprintln!("{}", &src2.src_str()[x..y]);
+            // }
             let mut futures = VecDeque::new();
             let mut failed = VecDeque::new();
             // Test one-item deletions sequentially and cyclically until a whole cycle fails
@@ -228,19 +233,21 @@ impl<T> From<T> for RawSpan where T: syn::spanned::Spanned {
 struct UnusedRemover {
     items: HashSet<RawSpan>,
     start: usize,
+    char_indices: Vec<usize>,
 }
 
 impl UnusedRemover {
-    fn new(file: &syn::File, deadcodes: &HashSet<RawSpan>) -> Self {
+    fn new(file: &syn::File, deadcodes: &HashSet<RawSpan>, source: &str) -> Self {
         Self {
             items: deadcodes.clone(),
             start: RawSpan::from(file).0,
+            char_indices: source.char_indices().map(|(i, _)| i).collect()
         }
     }
 }
 
-fn remove_unused(file: &mut syn::File, unused: &HashSet<RawSpan>) {
-    let mut deleter = UnusedRemover::new(file, unused);
+fn remove_unused(file: &mut syn::File, unused: &HashSet<RawSpan>, source: &str) {
+    let mut deleter = UnusedRemover::new(file, unused, source);
     deleter.visit_file_mut(file);
 }
 
@@ -258,7 +265,7 @@ fn is_single_use_path(tree: &syn::UseTree) -> bool {
 impl UnusedRemover {
     fn node_span<T>(&self, node: &T) -> RawSpan where T: syn::spanned::Spanned {
         let span = offset(span_to_bytes(node.span()), self.start);
-        RawSpan(span.0, span.1)
+        RawSpan(self.char_indices[span.0], self.char_indices[span.1])
     }
 
     // if current tree is single path, test on entire path directly
