@@ -77,10 +77,6 @@ fn try_remove_one_item(src: &str) -> String {
             let syn_file = syn::parse_file(src)?;
             let positions = item_positions(&syn_file);
             let mut spans = positions.iter().map(|&(_, (x, y))| (char_indices[x], char_indices[y])).collect::<VecDeque<_>>();
-            // for &(x, y) in &spans {
-            //     eprintln!("{} {}", x, y);
-            //     eprintln!("{}", &src2.src_str()[x..y]);
-            // }
             let mut futures = VecDeque::new();
             let mut failed = VecDeque::new();
             // Test one-item deletions sequentially and cyclically until a whole cycle fails
