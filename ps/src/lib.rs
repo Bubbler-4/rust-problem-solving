@@ -6,115 +6,92 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-    let n = io.get(0usize)?;
-    let mut conn = vec![vec![]; n];
-    let mut anticonn = vec![vec![]; n];
-    let mut matrix = vec![vec![false; n]; n];
-    for i in 0..n {
-        let k = io.get(0usize)?;
-        let v = io.get(vec![0usize; k])?;
-        let mut non = 0;
-        for x in v {
-            conn[i].push(x as u16 - 1);
-            matrix[i][x-1] = true;
-            for y in non..x-1 {
-                if y != i { anticonn[i].push(y as u16); }
-            }
-            non = x;
-        }
-        for y in non..n {
-            if y != i { anticonn[i].push(y as u16); }
-        }
-    }
-    // eprintln!("{:?}", conn);
-    // eprintln!("{:?}", anticonn);
-    // eprintln!("{:?}", matrix);
-    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-    enum State { Unused, Clique, Anti }
-    use State::*;
-    let mut used = vec![Unused; n];
-    let mut clique = vec![];
-    let mut anticlique = vec![];
-    let degmin = (0..n).filter(|&i| used[i] == Unused).min_by_key(|&i| conn[i].len()).unwrap();
-    let degmax = (0..n).filter(|&i| used[i] == Unused).max_by_key(|&i| conn[i].len()).unwrap();
-    if conn[degmin].len() == n-1 || conn[degmax].len() == 0 { io.put(n); None? }
-    let mut extra = 0;
-    while let Some(degmin) = (0..n).filter(|&i| used[i] == Unused).min_by_key(|&i| conn[i].len()) {
-        let degmax = (0..n).filter(|&i| used[i] == Unused).max_by_key(|&i| conn[i].len()).unwrap();
-        if conn[degmax].len() == clique.len() { io.put(n - clique.len() - anticlique.len() + 1 + extra); None? }
-        if conn[degmin].len() == n - anticlique.len() - 1 { io.put(n - clique.len() - anticlique.len() + 1); None? }
-        let mut anti_q = VecDeque::from(vec![degmin]);
-        let mut cliq_q = VecDeque::new();
-        used[degmin] = Anti;
-        extra = 1;
-        while let Some(anti) = anti_q.pop_front() {
-            // eprintln!("anti {}", anti);
-            for &prev_anti in &anticlique {
-                if matrix[anti][prev_anti] { io.put('0'); None? }
-            }
-            anticlique.push(anti);
-            for &cli in &conn[anti] {
-                let cli = cli as usize;
-                if used[cli] == Clique { continue; }
-                if used[cli] == Anti { io.put('0'); None? }
-                used[cli] = Clique;
-                cliq_q.push_back(cli);
-                if anti != degmin { extra = 0; }
-            }
-            while let Some(cli) = cliq_q.pop_front() {
-                // eprintln!("cli {}", cli);
-                for &prev_cli in &clique {
-                    if matrix[cli][prev_cli] {} else { io.put('0'); None? }
-                }
-                clique.push(cli);
-                for &anti in &anticonn[cli] {
-                    let anti = anti as usize;
-                    // eprintln!("inner anti {}", anti);
-                    if used[anti] == Anti { continue; }
-                    if used[anti] == Clique { io.put('0'); None? }
-                    used[anti] = Anti;
-                    anti_q.push_back(anti);
-                }
-            }
-        }
-    }
-    io.put(1);
+	loop {
+		let s = io.get(S)?;
+		match &*s {
+			"TTYL" => {
+				io.put("talk to you later");
+				break;
+			}
+			"CU" => io.put("see you"),
+			":-)" => io.put("I’m happy"),
+			":-(" => io.put("I’m unhappy"),
+			";-)" => io.put("wink"),
+			":-P" => io.put("stick out my tongue"),
+			"(~.~)" => io.put("sleepy"),
+			"TA" => io.put("totally awesome"),
+			"CCC" => io.put("Canadian Computing Competition"),
+			"CUZ" => io.put("because"),
+			"TY" => io.put("thank-you"),
+			"YW" => io.put("you’re welcome"),
+			_ => io.put(s),
+		}
+			.nl();
+	}
     None
 }
 
 #[cfg(test)]
 mod test {
     use std::io::{BufRead, Write};
-    use crate::{io::IO, solve};
+    use crate::{io::*, solve};
+    use std::collections::*;
     #[allow(clippy::all)]
     #[allow(unused_must_use, unused_doc_comments)]
     fn solve2<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-        let n = io.get(0usize)?;
-        let mut matrix = vec![vec![false; n]; n];
-        for i in 0..n {
-            let k = io.get(0usize)?;
-            let v = io.get(vec![0usize; k])?;
-            for x in v { matrix[i][x-1] = true; }
-        }
+        let [r, c, k] = io.get([0usize; 3])?;
+        let grid = io.get(vec![B; r])?;
         let mut ans = 0usize;
-        let mut pats = vec![];
-        'outer: for bits in 1..(1usize<<n)-1 {
-            for i in 0..n {
-                let bit_i = (bits >> i) & 1;
-                for j in i+1..n {
-                    let bit_j = (bits >> j) & 1;
-                    if bit_i == 1 && bit_j == 1 {
-                        if !matrix[i][j] { continue 'outer; }
-                    }
-                    if bit_i == 0 && bit_j == 0 {
-                        if matrix[i][j] { continue 'outer; }
+        // test all bitmasks
+        'outer: for bits in 0..1usize<<(r*c) {
+            let mut grid2 = grid.clone();
+            let mut b = bits;
+            let mut ts = 0usize;
+            let mut somet = (r, c);
+            let mut somed = (r, c);
+            for rr in 0..r {
+                for cc in 0..c {
+                    if b % 2 == 0 { grid2[rr][cc] = b'T'; ts += 1; somet = (rr, cc); }
+                    else { grid2[rr][cc] = b'D'; somed = (rr, cc); }
+                    if grid[rr][cc] + grid2[rr][cc] == b'T' + b'D' { continue 'outer; }
+                    b /= 2;
+                }
+            }
+            if ts.abs_diff(r*c-ts) > k { continue; }
+            for rr in 0..r-1 {
+                for cc in 0..c-1 {
+                    if grid2[rr][cc] == grid2[rr][cc+1] && grid2[rr][cc] == grid2[rr+1][cc] && grid2[rr][cc] == grid2[rr+1][cc+1] { continue 'outer; }
+                }
+            }
+            let mut stepped = vec![vec![false; c]; r];
+            if somed != (r, c) {
+                let mut q = VecDeque::from(vec![somed]);
+                stepped[somed.0][somed.1] = true;
+                while let Some((rr, cc)) = q.pop_front() {
+                    for (rrr, ccc) in [(rr-1, cc), (rr+1, cc), (rr, cc-1), (rr, cc+1)] {
+                        if rrr < r && ccc < c && !stepped[rrr][ccc] && grid2[rrr][ccc] != b'T' {
+                            stepped[rrr][ccc] = true;
+                            q.push_back((rrr, ccc));
+                        }
                     }
                 }
             }
-            ans += 1;
-            pats.push(bits);
+            if somet != (r, c) {
+                let mut q = VecDeque::from(vec![somet]);
+                stepped[somet.0][somet.1] = true;
+                while let Some((rr, cc)) = q.pop_front() {
+                    for (rrr, ccc) in [(rr-1, cc), (rr+1, cc), (rr, cc-1), (rr, cc+1)] {
+                        if rrr < r && ccc < c && !stepped[rrr][ccc] && grid2[rrr][ccc] != b'D' {
+                            stepped[rrr][ccc] = true;
+                            q.push_back((rrr, ccc));
+                        }
+                    }
+                }
+            }
+            if stepped.iter().flatten().all(|x| *x) {
+                ans += 1;
+            }
         }
-        eprintln!("{:?}", pats);
         io.put(ans);
         None
     }
@@ -123,33 +100,38 @@ mod test {
     #[allow(unused_must_use)]
     fn check() {
         use std::io::Write;
-        for n in 2usize..=5 {
-            let edges = (0..n).flat_map(|i| (i+1..n).map(move |j| (i, j))).collect::<Vec<_>>();
-            for bits in 0usize..1<<edges.len() {
-                let mut input: Vec<u8> = vec![];
-                let mut desc = vec![vec![]; n];
-                for b in 0..edges.len() {
-                    if ((bits >> b) & 1) == 1 { let (x, y) = edges[b]; desc[x].push(y); desc[y].push(x); }
+        for r in 3..=3 {
+            for c in 4..=4 {
+                for pat in 0..2usize.pow((r*c) as u32) {
+                    let mut grid = vec![vec![0u8; c]; r];
+                    let mut pat = pat;
+                    for rr in 0..r {
+                        for cc in 0..c {
+                            grid[rr][cc] = b"DT"[pat % 2];
+                            pat /= 2;
+                        }
+                    }
+                    for k in r*c..=r*c {
+                        let mut input: Vec<u8> = vec![];
+                        writeln!(input, "{} {} {}", r, c, k);
+                        for row in &grid {
+                            input.write(row);
+                            writeln!(input);
+                        }
+                        let mut output1: Vec<u8> = vec![];
+                        let mut output2: Vec<u8> = vec![];
+                        let mut io1 = IO::new(&input[..], &mut output1);
+                        solve(&mut io1);
+                        let mut io2 = IO::new(&input[..], &mut output2);
+                        solve2(&mut io2);
+                        drop(io1); drop(io2);
+                        assert_eq!(output1, output2, "failed on:\n{}; solve: {}, solve2: {}",
+                            String::from_utf8_lossy(&input),
+                            String::from_utf8_lossy(&output1),
+                            String::from_utf8_lossy(&output2),
+                        );
+                    }
                 }
-                write!(input, "{}\n", n);
-                for row in desc {
-                    write!(input, "{}", row.len());
-                    for x in row { write!(input, " {}", x + 1); }
-                    write!(input, "\n");
-                }
-                let input1 = input;
-                let mut output1: Vec<u8> = vec![];
-                let mut output2: Vec<u8> = vec![];
-                let mut io1 = IO::new(&input1[..], &mut output1);
-                solve(&mut io1);
-                let mut io2 = IO::new(&input1[..], &mut output2);
-                solve2(&mut io2);
-                drop(io1); drop(io2);
-                assert_eq!(output1, output2, "failed on:\n{}; solve: {}, solve2: {}",
-                    String::from_utf8_lossy(&input1),
-                    String::from_utf8_lossy(&output1),
-                    String::from_utf8_lossy(&output2),
-                );
             }
         }
     }
@@ -162,6 +144,7 @@ mod graph;
 mod geometry;
 mod string;
 mod fft;
+mod flow;
 /// IO template
 mod io;
 use io::*;

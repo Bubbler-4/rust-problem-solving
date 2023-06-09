@@ -1,6 +1,7 @@
 use std::cmp::{Ordering, Ordering::*};
 
-#[derive(Clone, Copy)]
+/// num, denom; denom > 0
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct Frac(pub(crate) i64, pub(crate) i64);
 impl PartialEq for Frac {
     fn eq(&self, other: &Self) -> bool {

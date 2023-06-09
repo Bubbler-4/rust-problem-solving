@@ -91,6 +91,15 @@ macro_rules! print_tuple {
     }
 }
 print_tuple!((T, U) (T, U, V) (T, U, V, W) (T, U, V, W, X) (T, U, V, W, X, Y));
+impl<'a> Print for std::fmt::Arguments<'a> {
+    fn print<W: Write>(&self, w: &mut W) {
+        w.write_fmt(*self).unwrap();
+    }
+}
+#[macro_export]
+macro_rules! f {
+    ($($t: tt)*) => { format_args!($($t)*)}
+}
 
 pub(crate) struct I<R: BufRead> {
     r: R,
