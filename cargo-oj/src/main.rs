@@ -196,11 +196,29 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     positions
 }
 
+// async fn rustc_check_success_async0(source: &str) -> bool {
+//     async fn inner(source: &str) -> Result<bool, Box<dyn std::error::Error>> {
+//         let mut rustc_check = tokio::process::Command::new("rustc");
+//         rustc_check
+//             .args(["--emit=mir", "--edition=2021", "--out-dir=/tmp/ramdisk", "-"])
+//             .stdin(Stdio::piped())
+//             .stdout(Stdio::null())
+//             .stderr(Stdio::null());
+//         let mut child = rustc_check.spawn().expect("Failed to run rustc.");
+//         let mut stdin = child.stdin.take().expect("Failed to get stdin handle of rustc.");
+//         stdin.write_all(source.as_bytes()).await.expect("Failed to write to rustc's stdin.");
+//         drop(stdin); // Signal EOF
+//         let status = child.wait().await?;
+//         Ok(status.success())
+//     }
+//     inner(source).await.unwrap()
+// }
+
 async fn rustc_check_success_async(source: &str) -> bool {
     async fn inner(source: &str) -> Result<bool, Box<dyn std::error::Error>> {
-        let mut rustc_check = tokio::process::Command::new("rustc");
+        let mut rustc_check = tokio::process::Command::new("rustup");
         rustc_check
-            .args(["--emit=mir", "--edition=2021", "--out-dir=/tmp/ramdisk", "-"])
+            .args(["run", "nightly", "cargo-oj-internal-typeck"])
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
@@ -357,10 +375,41 @@ impl VisitMut for UnusedRemover {
     }
 }
 
+// fn rustc_check_unused0(source: &str) -> HashSet<RawSpan> {
+//     let mut rustc_check = Command::new("rustc");
+//     rustc_check
+//         .args(["--emit=mir", "--edition", "2021", "--error-format", "json", "--out-dir=/tmp/ramdisk", "-"])
+//         .stdin(Stdio::piped())
+//         .stdout(Stdio::null())
+//         .stderr(Stdio::piped());
+//     let child = rustc_check.spawn().expect("Failed to run rustc.");
+//     let mut stdin = child.stdin.as_ref().expect("Failed to get stdin handle of rustc.");
+//     stdin.write_all(source.as_bytes()).expect("Failed to write to rustc's stdin.");
+//     let rustc_check_stdout = child.wait_with_output().expect("Failed to open rustc's stdout.");
+//     let rustc_check_output = String::from_utf8(rustc_check_stdout.stderr).unwrap();
+//     let mut unused = HashSet::new();
+//     for line in rustc_check_output.lines() {
+//         let Ok(obj) = line.parse::<Value>() else { continue; };
+//         let warning = obj.pointer("/code/code");
+//         if warning == Some(&Value::from("dead_code")) || warning == Some(&Value::from("unused_imports")) {
+//             let Some(spans) = obj.pointer("/spans") else { continue; };
+//             let Some(spans) = spans.as_array() else { continue; };
+//             for span in spans {
+//                 let is_primary = span.pointer("/is_primary").unwrap().as_bool().unwrap();
+//                 if !is_primary { continue; }
+//                 let byte_start = span.pointer("/byte_start").unwrap().as_u64().unwrap() as usize;
+//                 let byte_end = span.pointer("/byte_end").unwrap().as_u64().unwrap() as usize;
+//                 unused.insert(RawSpan(byte_start, byte_end));
+//             }
+//         }
+//     }
+//     unused
+// }
+
 fn rustc_check_unused(source: &str) -> HashSet<RawSpan> {
-    let mut rustc_check = Command::new("rustc");
+    let mut rustc_check = Command::new("rustup");
     rustc_check
-        .args(["--emit=mir", "--edition", "2021", "--error-format", "json", "--out-dir=/tmp/ramdisk", "-"])
+        .args(["run", "nightly", "cargo-oj-internal-unused"])
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
