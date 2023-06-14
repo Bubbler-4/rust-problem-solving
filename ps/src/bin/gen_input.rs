@@ -3,6 +3,13 @@
 use rand::{thread_rng, Rng};
 fn main() {
     println!("{}", S); return;
+    println!("500 500");
+    for _ in 0..500 {
+        for _ in 0..500 {
+            print!("1 ");
+        }
+        println!();
+    }
     // let mut rng = thread_rng();
 
     // let n = 100000;
