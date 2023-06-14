@@ -117,6 +117,22 @@ fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
 	io.put(1);
 	None
 }
+mod geometry {
+    use std::cmp::Ordering;
+    #[derive(Clone, Copy)]
+    pub(crate) struct Frac(pub(crate) i64, pub(crate) i64);
+    impl PartialEq for Frac {
+        fn eq(&self, other: &Self) -> bool {
+            self.0 * other.1 == self.1 * other.0
+        }
+    }
+    impl Eq for Frac {}
+    impl PartialOrd for Frac {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            (self.0 * other.1).partial_cmp(&(self.1 * other.0))
+        }
+    }
+}
 /// IO template
 mod io {
 	pub(crate) use std::io::{Write, stdin, stdout, BufWriter, BufRead};
