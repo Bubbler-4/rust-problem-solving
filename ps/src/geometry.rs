@@ -21,6 +21,7 @@ impl Ord for Frac {
 }
 
 /// (x, y) pts -> (upper hull, lower hull)
+/// B=true: keep collinear points; B=false: discard collinear points
 pub(crate) fn convex_hull<const B: bool>(pts: &[(i64, i64)]) -> (Vec<(i64, i64)>, Vec<(i64, i64)>) {
     let mut v = pts.to_vec();
     v.sort_unstable(); // min x; min y
