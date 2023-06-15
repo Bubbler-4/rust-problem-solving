@@ -4,6 +4,7 @@
 use std::collections::*;
 use std::cmp::{Reverse, Ordering::{self, *}};
 
+#[cfg(target="x86_64")]
 fn rand() -> usize {
     use std::mem;
     use core::arch::x86_64::_rdrand64_step as rdrand_step;
