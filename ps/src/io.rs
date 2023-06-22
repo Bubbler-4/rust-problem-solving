@@ -51,6 +51,11 @@ impl Print for (f64, usize) {
         write!(w, "{:.*}", self.1, self.0).unwrap();
     }
 }
+impl Print for (usize, f64) {
+    fn print<W: Write>(&self, w: &mut W) {
+        write!(w, "{:.*}", self.0, self.1).unwrap();
+    }
+}
 impl Print for [u8] {
     fn print<W: Write>(&self, w: &mut W) {
         w.write(self).unwrap();
@@ -74,6 +79,11 @@ impl<T: Print + ?Sized> Print for &T {
     }
 }
 impl<T> Print for Vec<T> where [T]: Print {
+    fn print<W: Write>(&self, w: &mut W) {
+        self[..].print(w);
+    }
+}
+impl<T, const N: usize> Print for [T; N] where [T]: Print {
     fn print<W: Write>(&self, w: &mut W) {
         self[..].print(w);
     }
