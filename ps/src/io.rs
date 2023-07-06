@@ -18,6 +18,15 @@ impl<R: BufRead, W: Write> IO<R, W> {
         t.print(&mut self.oo);
         self
     }
+    pub(crate) fn sep<T: Print, U: Print, Arr: IntoIterator<Item=T>>(&mut self, arr: Arr, sep: U) -> &mut Self {
+        let mut first = true;
+        for t in arr {
+            if !first { sep.print(&mut self.oo); }
+            t.print(&mut self.oo);
+            first = false;
+        }
+        self
+    }
     pub(crate) fn sp(&mut self) -> &mut Self {
         self.put(" ")
     }
