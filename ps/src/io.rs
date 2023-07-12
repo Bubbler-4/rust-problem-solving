@@ -53,7 +53,7 @@ macro_rules! print_disp {
     }
 }
 print_disp!(usize, i64, String, &str, char);
-print_disp!(u16, u32, u128);
+print_disp!(u16, u32, u64, u128);
 print_disp!(i16, i32, i128);
 impl Print for (f64, usize) {
     fn print<W: Write>(&self, w: &mut W) {
