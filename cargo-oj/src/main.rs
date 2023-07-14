@@ -449,15 +449,25 @@ fn load_recursive(path: &str) -> syn::File {
     // - custom path attributes
     // - non-inline modules inside inline modules
 
-    // Try <path>.rs unless the current path is the src root ("src/lib")
-    let file_path = if path == "src/lib" { "src/lib.rs".to_owned() } else { format!("{}.rs", path) };
-    let file = fs::read_to_string(&file_path);
+    // Try <path>.rs and <path>/mod.rs unless the current path is the src root ("src/lib")
+    let file_path = if path == "src/lib" {
+        vec!["src/lib.rs".to_owned()]
+    } else {
+        vec![format!("{}.rs", path), format!("{}/mod.rs", path)]
+    };
+    let mut reads = file_path.iter().map(|path| (path, fs::read_to_string(path)));
+    let (mut filename, mut file) = reads.next().unwrap();
+    for (next_filename, next_file) in reads {
+        if file.is_ok() { break; }
+        file = file.or(next_file);
+        filename = next_filename;
+    }
     let src = file.unwrap_or_else(|_| {
         if path == "src/lib" {
-            eprintln!("Failed to read the file {}.", file_path);
+            eprintln!("Failed to read the file {}.", file_path[0]);
             eprintln!("Please make sure to run at the crate root of a lib crate, and the crate builds correctly.");
         } else {
-            eprintln!("Failed to read the file {}.", file_path);
+            eprintln!("Failed to read the file {} or {}.", file_path[0], file_path[1]);
             eprintln!("Please make sure that the crate builds correctly.");
         }
         panic!()
@@ -465,7 +475,7 @@ fn load_recursive(path: &str) -> syn::File {
     // Parse the current file
     let syntax = syn::parse_file(&src);
     let mut syntax = syntax.unwrap_or_else(|_| {
-        eprintln!("Failed to parse the file {}.", file_path);
+        eprintln!("Failed to parse the file {}.", filename);
         eprintln!("Please make sure the crate builds correctly.");
         panic!()
     });
