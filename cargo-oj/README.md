@@ -34,7 +34,7 @@ removing all the unnecessary bloat (which is dead code) along the way.
 ## Limitations
 
 * Use of third party crates is not supported.
-* Use of `#[path = "filepath"]` attributes for module file paths is not supported. `modname.rs` and `modname/mod.rs` are supported.
+* Use of `#[path = "filepath"]` attributes for module file paths is not supported. `modname.rs`, `modname/mod.rs`, and inline modules are supported.
 * It takes a few seconds to eliminate all unnecessary `trait Trait` and `impl Trait for T` items, even in relatively small module structure (see `ps` folder for example). This is due to the limitations of `rustc`'s dead code warnings and the complexity of trait resolution.
 
 ## Installation
