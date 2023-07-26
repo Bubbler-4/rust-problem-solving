@@ -6,28 +6,36 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-	loop {
-		let s = io.get(S)?;
-		match &*s {
-			"TTYL" => {
-				io.put("talk to you later");
-				break;
-			}
-			"CU" => io.put("see you"),
-			":-)" => io.put("I’m happy"),
-			":-(" => io.put("I’m unhappy"),
-			";-)" => io.put("wink"),
-			":-P" => io.put("stick out my tongue"),
-			"(~.~)" => io.put("sleepy"),
-			"TA" => io.put("totally awesome"),
-			"CCC" => io.put("Canadian Computing Competition"),
-			"CUZ" => io.put("because"),
-			"TY" => io.put("thank-you"),
-			"YW" => io.put("you’re welcome"),
-			_ => io.put(s),
-		}
-			.nl();
-	}
+    let [n, m, r] = io.get([0usize; 3])?;
+    let mut graph = vec![vec![]; n];
+    let r = r-1;
+    for _ in 0..m {
+        let [a, b] = io.get([0usize; 2])?;
+        graph[a-1].push(b-1);
+        graph[b-1].push(a-1);
+    }
+    for x in &mut graph { x.sort_unstable(); }
+    let mut visited = vec![false; n];
+    let mut visits = vec![0usize; n];
+    let mut q = VecDeque::from([r]);
+    visited[r] = true;
+    visits[r] = 1;
+    let mut cur_order = 2;
+    while let Some(x) = q.pop_front() {
+        for &y in &graph[x] {
+            if !visited[y] {
+                visited[y] = true;
+                visits[y] = cur_order;
+                cur_order += 1;
+                q.push_back(y);
+            }
+        }
+    }
+    io.sep(visits, "\n");
+    /*
+    ./go.sh 24444
+    ./run.sh
+    */
     None
 }
 
@@ -145,6 +153,7 @@ mod geometry;
 mod string;
 mod fft;
 mod flow;
+mod lca;
 /// IO template
 mod io;
 use io::*;

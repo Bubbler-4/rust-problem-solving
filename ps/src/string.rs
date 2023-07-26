@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 /// kmp failure function
 /// fail[i] = max prefix len of s[0..<i] that == suffix of s[..=i]
 pub(crate) fn kmp_failure<T: Eq>(needle: &[T]) -> Vec<usize> {
@@ -27,4 +29,21 @@ pub(crate) fn kmp_match<T: Eq>(haystack: &[T], needle: &[T], failure: &[usize]) 
         mat_col[i] = mat;
     }
     mat_col
+}
+
+pub(crate) struct Trie<T> {
+    subtree: BTreeMap<T, Trie<T>>
+}
+
+impl<T: std::cmp::Ord> Trie<T> {
+    pub(crate) fn new() -> Self {
+        Trie { subtree: BTreeMap::new() }
+    }
+    pub(crate) fn insert(&mut self, values: Vec<T>) {
+        let mut cur_tree = &mut self.subtree;
+        for v in values {
+            let x = cur_tree.entry(v).or_insert(Trie { subtree: BTreeMap::new() });
+            cur_tree = &mut x.subtree;
+        }
+    }
 }
