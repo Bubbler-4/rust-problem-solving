@@ -169,3 +169,35 @@ pub(crate) fn bellman_ford(n: usize, g: &[Vec<(usize, i64)>], s: usize) -> (Vec<
     }
     (d, pred, has_neg_cycle)
 }
+
+///////////////////////////////////////////////////////////////////////
+/// Bellman-Ford but only checks for the nodes reachable from the start
+/// weighted adjacency list -> (dist, prev, has_neg_cycle)
+pub(crate) fn bellman_ford_reachable(n: usize, g: &[Vec<(usize, i64)>], s: usize) -> (Vec<i64>, Vec<usize>, bool) {
+    let mut d = vec![i64::MAX / 2; n];
+    let mut pred = vec![usize::MAX; n];
+    d[s] = 0;
+    pred[s] = s;
+    for _ in 1..n {
+        for u in 0..n {
+            if pred[u] == usize::MAX { continue; }
+            for &(v, w) in &g[u] {
+                if d[u] + w < d[v] {
+                    d[v] = d[u] + w;
+                    pred[v] = u;
+                }
+            }
+        }
+    }
+    let mut has_neg_cycle = false;
+    'l: for u in 0..n {
+        if pred[u] == usize::MAX { continue; }
+        for &(v, w) in &g[u] {
+            if d[u] + w < d[v] {
+                has_neg_cycle = true;
+                break 'l;
+            }
+        }
+    }
+    (d, pred, has_neg_cycle)
+}
