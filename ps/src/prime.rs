@@ -12,4 +12,4 @@ pub(crate) fn prime_sieve(limit: usize) -> Vec<usize> {
     table.iter().enumerate().filter(|&(_, y)| *y).map(|(x, _)| x).collect()
 }
 
-mod factorizer; 
+pub(crate) mod factorizer; 

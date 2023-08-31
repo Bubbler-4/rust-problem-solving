@@ -152,17 +152,17 @@ impl<R: BufRead> I<R> {
 pub(crate) trait Fill {
     fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
 }
-const WS: [char; 3] = [' ', '\n', '\r'];
+fn ws(c: char) -> bool { c <= ' ' }
 macro_rules! fill_num {
     ($($t: ty),+) => {
         $(impl Fill for $t {
             fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-                i.rem = i.rem.trim_start_matches(WS);
+                i.rem = i.rem.trim_start_matches(ws);
                 while i.rem.is_empty() {
                     i.next_line()?;
-                    i.rem = i.rem.trim_start_matches(WS);
+                    i.rem = i.rem.trim_start_matches(ws);
                 }
-                let tok = i.rem.split(WS).next().unwrap();
+                let tok = i.rem.split(ws).next().unwrap();
                 i.rem = &i.rem[tok.len()..];
                 *self = tok.parse().ok()?;
                 Some(())
@@ -177,12 +177,12 @@ fill_num!(i16, i32, i128);
 pub(crate) struct Line<T, const B: bool>(pub T);
 impl Fill for String {
     fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
+        i.rem = i.rem.trim_start_matches(ws);
         while i.rem.is_empty() {
             i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
+            i.rem = i.rem.trim_start_matches(ws);
         }
-        let tok = i.rem.split(WS).next().unwrap();
+        let tok = i.rem.split(ws).next().unwrap();
         i.rem = &i.rem[tok.len()..];
         self.push_str(tok);
         Some(())
@@ -204,12 +204,12 @@ pub(crate) const L: Line<String, false> = Line(S);
 pub(crate) const N: Line<String, true> = Line(S);
 impl Fill for Vec<u8> {
     fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()> {
-        i.rem = i.rem.trim_start_matches(WS);
+        i.rem = i.rem.trim_start_matches(ws);
         while i.rem.is_empty() {
             i.next_line()?;
-            i.rem = i.rem.trim_start_matches(WS);
+            i.rem = i.rem.trim_start_matches(ws);
         }
-        let tok = i.rem.split(WS).next().unwrap();
+        let tok = i.rem.split(ws).next().unwrap();
         i.rem = &i.rem[tok.len()..];
         self.extend_from_slice(tok.as_bytes());
         Some(())

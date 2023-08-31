@@ -15,6 +15,7 @@ fn pow_mod(n: usize, p: usize, m: usize) -> usize {
 }
 pub(crate) fn is_prime(n: usize) -> bool {
     if n < 2 || n % 6 % 4 != 1 { return (n | 1) == 3; }
+    if n > 5 && n % 5 == 0 { return false; }
     let s = (n-1).trailing_zeros();
     let d = n >> s;
     for &a in &[2, 325, 9375, 28178, 450775, 9780504, 1795265022] {
