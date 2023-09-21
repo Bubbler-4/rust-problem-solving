@@ -18,6 +18,10 @@ impl<R: BufRead, W: Write> IO<R, W> {
         t.print(&mut self.oo);
         self
     }
+    pub(crate) fn end<T: Print>(&mut self, t: T) -> Option<()> {
+        t.print(&mut self.oo);
+        None
+    }
     pub(crate) fn sep<T: Print, U: Print, Arr: IntoIterator<Item=T>>(&mut self, arr: Arr, sep: U) -> &mut Self {
         let mut first = true;
         for t in arr {
@@ -54,7 +58,7 @@ macro_rules! print_disp {
 }
 print_disp!(usize, i64, String, &str, char);
 print_disp!(u16, u32, u64, u128);
-print_disp!(i16, i32, i128);
+print_disp!(i16, i32, isize, i128);
 impl Print for (f64, usize) {
     fn print<W: Write>(&self, w: &mut W) {
         write!(w, "{:.*}", self.1, self.0).unwrap();
@@ -171,8 +175,8 @@ macro_rules! fill_num {
     }
 }
 fill_num!(usize, i64, f64);
-fill_num!(u16, u32, u128);
-fill_num!(i16, i32, i128);
+fill_num!(u16, u32, u64, u128);
+fill_num!(i16, i32, isize, i128);
 #[derive(Clone)]
 pub(crate) struct Line<T, const B: bool>(pub T);
 impl Fill for String {
