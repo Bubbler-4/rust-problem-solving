@@ -1,0 +1,17 @@
+schemaVersion: 2.2.0
+attributes:
+  space:
+    instanceType: regular
+    editor:
+      type: Fleet
+    requiredSecrets:
+    - name: BUB_BOJAUTOLOGIN
+      description: 'Part of BOJ Auto Login token'
+    - name: BUB_ONLINEJUDGE
+      description: 'Part of BOJ Auto Login token'
+components:
+- name: image-build
+  image:
+    imageName: my-image:latest
+    dockerfile:
+      uri: Dockerfile
