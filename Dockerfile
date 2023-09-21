@@ -5,7 +5,7 @@ FROM gitpod/workspace-full:latest
 #   && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
 #   firefox fonts-noto-cjk fonts-noto-color-emoji
 
-USER gitpod
-RUN rustup toolchain uninstall stable && rustup toolchain install stable && rustup component add rustfmt clippy
-ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
-RUN cargo install cargo-boj
+# USER gitpod
+# RUN rustup toolchain uninstall stable && rustup toolchain install stable && rustup component add rustfmt clippy
+# ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+# RUN cargo install cargo-boj
