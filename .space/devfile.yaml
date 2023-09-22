@@ -10,8 +10,6 @@ attributes:
     - name: BUB_ONLINEJUDGE
       description: 'Part of BOJ Auto Login token'
 components:
-- name: image-build
-  image:
-    imageName: my-image:latest
-    dockerfile:
-      uri: Dockerfile
+- name: rust-container
+  container:
+    image: rust:1.72-bullseye
