@@ -55,6 +55,8 @@ fn main() {
         override_queries: None,
         registry: registry::Registry::new(&rustc_error_codes::DIAGNOSTICS),
         make_codegen_backend: None,
+        expanded_args: vec![],
+        ice_file: None,
     };
     rustc_interface::run_compiler(config, |compiler| {
         compiler.enter(|queries| {

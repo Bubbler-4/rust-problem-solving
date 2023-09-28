@@ -46,6 +46,8 @@ fn main() {
         override_queries: None,
         registry: registry::Registry::new(&[][..]),
         make_codegen_backend: None,
+        expanded_args: vec![],
+        ice_file: None,
     };
     let success = rustc_interface::run_compiler(config, |compiler| {
         compiler.enter(|queries| {
