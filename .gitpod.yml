@@ -1,4 +1,3 @@
-image:
-  file: Dockerfile
+image: gitpod/workspace-full:latest
 tasks:
-  - init: mkdir /tmp/ramdisk; cargo install --path cargo-oj
+  - init: cargo install --path cargo-oj; cargo install cargo-boj
