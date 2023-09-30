@@ -9,5 +9,5 @@ USER gitpod
 RUN rustup toolchain update stable \
     && rustup component add rust-src rustc-dev llvm-tools-preview rustfmt clippy \
     && cargo install cargo-boj \
-    && rustup toolchain install nightly \
+    && rustup toolchain install nightly --component rust-src rustc-dev llvm-tools-preview \
     && cargo +nightly install cargo-oj
