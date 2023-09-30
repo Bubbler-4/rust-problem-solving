@@ -2,6 +2,13 @@
 name = "cargo-oj"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Cargo-OJ: package a crate into single file, minimized and formatted"
+homepage = "https://github.com/Bubbler-4/rust-problem-solving/tree/main/cargo-oj"
+repository = "https://github.com/Bubbler-4/rust-problem-solving/tree/main/cargo-oj"
+readme = "README.md"
+keywords = ["cli"]
+categories = ["command-line-utilities", "development-tools::cargo-plugins"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
