@@ -8,6 +8,4 @@ FROM gitpod/workspace-full:latest
 USER gitpod
 RUN rustup toolchain update stable \
     && rustup component add rust-src rustc-dev llvm-tools-preview rustfmt clippy \
-    && cd cargo-oj \
-    && cargo install --path . \
     && cargo install cargo-boj
