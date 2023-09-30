@@ -6,33 +6,9 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-    let [n, m, r] = io.get([0usize; 3])?;
-    let mut graph = vec![vec![]; n];
-    let r = r-1;
-    for _ in 0..m {
-        let [a, b] = io.get([0usize; 2])?;
-        graph[a-1].push(b-1);
-        graph[b-1].push(a-1);
-    }
-    for x in &mut graph { x.sort_unstable(); }
-    let mut visited = vec![false; n];
-    let mut visits = vec![0usize; n];
-    let mut q = VecDeque::from([r]);
-    visited[r] = true;
-    visits[r] = 1;
-    let mut cur_order = 2;
-    while let Some(x) = q.pop_front() {
-        for &y in &graph[x] {
-            if !visited[y] {
-                visited[y] = true;
-                visits[y] = cur_order;
-                cur_order += 1;
-                q.push_back(y);
-            }
-        }
-    }
-    io.sep(visits, "\n");
+    
     /*
+    cd ps
     ./go.sh 24444
     ./run.sh
     */
