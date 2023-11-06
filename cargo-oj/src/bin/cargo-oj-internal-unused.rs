@@ -10,12 +10,12 @@ extern crate rustc_session;
 extern crate rustc_span;
 
 use rustc_errors::registry;
-use rustc_session::config::{self, CheckCfg};
-use rustc_span::source_map;
+use rustc_session::config;
 use std::io;
 use std::path;
 use std::process;
 use std::str;
+use std::sync::{Arc, atomic::AtomicBool};
 
 fn main() {
     let source = io::read_to_string(io::stdin()).unwrap();
@@ -40,11 +40,11 @@ fn main() {
         },
         // This program contains a type error.
         input: config::Input::Str {
-            name: source_map::FileName::Custom("main.rs".into()),
+            name: rustc_span::FileName::Custom("main.rs".into()),
             input: source,
         },
-        crate_cfg: rustc_hash::FxHashSet::default(),
-        crate_check_cfg: CheckCfg::default(),
+        crate_cfg: vec![],
+        crate_check_cfg: vec![],
         output_dir: None,
         output_file: None,
         file_loader: None,
@@ -57,6 +57,8 @@ fn main() {
         make_codegen_backend: None,
         expanded_args: vec![],
         ice_file: None,
+        hash_untracked_state: None,
+        using_internal_features: Arc::new(AtomicBool::from(false)),
     };
     rustc_interface::run_compiler(config, |compiler| {
         compiler.enter(|queries| {
