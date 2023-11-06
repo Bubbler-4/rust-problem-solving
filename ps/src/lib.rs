@@ -6,10 +6,22 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-    
+    let n = io.get(0usize)?;
+    for _ in 0..n {
+        let mut b = io.get(B)?;
+        if b[0] < b'A' || b[0] > b'F' { io.put("Good").nl(); continue; }
+        if b[0] != b'A' { b.remove(0); }
+        let x = b.len() - 1;
+        if b[x] < b'A' || b[x] > b'F' { io.put("Good").nl(); continue; }
+        if b[x] != b'C' { b.pop(); }
+        b.dedup();
+        if b != b"AFC" { io.put("Good").nl(); }
+        else { io.put("Infected!").nl(); }
+    }
     /*
     cd ps
-    ./go.sh 24444
+    ./go.sh 9342
+    ./test.sh 1173/12
     ./run.sh
     */
     None
@@ -126,6 +138,7 @@ mod ntheory;
 mod sequence;
 mod graph;
 mod geometry;
+mod segtree;
 mod string;
 mod fft;
 mod flow;
