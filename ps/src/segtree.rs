@@ -9,16 +9,16 @@
 /// }
 /// ```
 #[derive(Debug)]
-pub struct SegTree<T>(Vec<T>);
+pub(crate) struct SegTree<T>(Vec<T>);
 
 /// Requirements: op is associative and has an identity element
-pub trait Monoid: Clone + Copy {
+pub(crate) trait Monoid: Clone + Copy {
     fn op(self, rhs: Self) -> Self;
     fn identity() -> Self;
 }
 
 impl<T: Monoid> SegTree<T> {
-    pub fn new(data: Vec<T>) -> Self {
+    pub(crate) fn new(data: Vec<T>) -> Self {
         let base_len = data.len().next_power_of_two();
         let len = base_len * 2;
         let mut inner_data = vec![T::identity(); len];
@@ -29,7 +29,7 @@ impl<T: Monoid> SegTree<T> {
         SegTree(inner_data)
     }
 
-    pub fn update(&mut self, idx: usize, data: T) {
+    pub(crate) fn update(&mut self, idx: usize, data: T) {
         let base_len = self.0.len() / 2;
         let mut cur_idx = base_len + idx;
         self.0[cur_idx] = data;
@@ -41,7 +41,7 @@ impl<T: Monoid> SegTree<T> {
         }
     }
 
-    pub fn query(&self, left: usize, right: usize) -> T {
+    pub(crate) fn query(&self, left: usize, right: usize) -> T {
         let base_len = self.0.len() / 2;
         let mut left = left + base_len;
         let mut right = right + base_len;
@@ -67,7 +67,7 @@ impl<T: Monoid> SegTree<T> {
 /// * op is associative and has an identity element
 /// * compose: `apply(a, compose(f, g)) == apply(apply(a, g), f)`
 /// * apply: `apply(op(a, b), f) == op(apply(a, f), apply(b, f))`
-pub trait Lazyseg: Clone + Copy + std::fmt::Debug {
+pub(crate) trait Lazyseg: Clone + Copy + std::fmt::Debug {
     type F: Clone + Copy + std::fmt::Debug;
     fn op(self, rhs: Self) -> Self;
     fn identity() -> Self;
@@ -87,13 +87,13 @@ pub trait Lazyseg: Clone + Copy + std::fmt::Debug {
 ///     fn apply(self, f: Self::F) -> Self { (self.0 + f * self.1, self.1) }
 /// }
 /// ```
-pub struct LazySegTree<T> where T: Lazyseg {
+pub(crate) struct LazySegTree<T> where T: Lazyseg {
     data: Vec<T>,
     app: Vec<Option<T::F>>,
 }
 
 impl<T: Lazyseg> LazySegTree<T> {
-    pub fn new(init_data: &[T]) -> Self {
+    pub(crate) fn new(init_data: &[T]) -> Self {
         let size = init_data.len().next_power_of_two();
         let mut data = vec![T::identity(); size];
         data.extend_from_slice(init_data);
@@ -143,7 +143,7 @@ impl<T: Lazyseg> LazySegTree<T> {
         }
     }
 
-    pub fn update(&mut self, mut l: usize, mut r: usize, f: T::F) {
+    pub(crate) fn update(&mut self, mut l: usize, mut r: usize, f: T::F) {
         l += self.app.len();
         r += self.app.len();
         if l < r {
@@ -169,7 +169,7 @@ impl<T: Lazyseg> LazySegTree<T> {
         self.pull_from(r0);
     }
 
-    pub fn query(&mut self, mut l: usize, mut r: usize) -> T {
+    pub(crate) fn query(&mut self, mut l: usize, mut r: usize) -> T {
         l += self.app.len();
         r += self.app.len();
         if l < r {
