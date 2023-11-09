@@ -1,4 +1,4 @@
-FROM gitpod/workspace-full:latest
+FROM gitpod/workspace-rust:latest
 
 # USER root
 # RUN apt-get update -y -q && apt-get upgrade -y -q \
