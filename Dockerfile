@@ -16,4 +16,5 @@ RUN cd /tmp \
     && curl -fsSL https://github.com/typst/typst/releases/download/v0.9.0/typst-x86_64-unknown-linux-musl.tar.xz -o typst.tar.xz \
     && tar xf typst.tar.xz \
     && cd typst-x86_64-unknown-linux-musl \
+    && mkdir -p /workspace/.cargo/bin \
     && cp typst /workspace/.cargo/bin/typst
