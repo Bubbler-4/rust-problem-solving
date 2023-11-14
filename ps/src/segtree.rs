@@ -41,6 +41,18 @@ impl<T: Monoid> SegTree<T> {
         }
     }
 
+    pub(crate) fn update_with(&mut self, idx: usize, f: impl FnOnce(&mut T)) {
+        let base_len = self.0.len() / 2;
+        let mut cur_idx = base_len + idx;
+        f(&mut self.0[cur_idx]);
+        while cur_idx != 1 {
+            let parent = cur_idx / 2;
+            let left = cur_idx & !1;
+            self.0[parent] = self.0[left].op(self.0[left + 1]);
+            cur_idx = parent;
+        }
+    }
+
     pub(crate) fn query(&self, left: usize, right: usize) -> T {
         let base_len = self.0.len() / 2;
         let mut left = left + base_len;
