@@ -5,25 +5,30 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
-fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
-    let n = io.get(0usize)?;
-    for _ in 0..n {
-        let mut b = io.get(B)?;
-        if b[0] < b'A' || b[0] > b'F' { io.put("Good").nl(); continue; }
-        if b[0] != b'A' { b.remove(0); }
-        let x = b.len() - 1;
-        if b[x] < b'A' || b[x] > b'F' { io.put("Good").nl(); continue; }
-        if b[x] != b'C' { b.pop(); }
-        b.dedup();
-        if b != b"AFC" { io.put("Good").nl(); }
-        else { io.put("Infected!").nl(); }
+fn solve<R: BufRead, W: Write, E: Write>(io: &mut IO<R, W, E>) -> Option<()> {
+    let mut phi = (0usize..=10000).collect::<Vec<_>>();
+    for p in 2..=10000 {
+        if phi[p] == p {
+            for q in (p..=10000).step_by(p) {
+                phi[q] = phi[q] / p * (p-1);
+            }
+        }
+    }
+    phi[0] = 1;
+    for i in 1..=10000 { phi[i] += phi[i-1]; }
+    let t = io.get(0usize)?;
+    for _ in 0..t {
+        let n = io.get(0usize)?;
+        io.put(phi[n]).nl();
     }
     /*
     cd ps
-    ./go.sh 9342
-    ./test.sh 1173/12
+    ./go.sh 13076
+    ./test.sh 18809
     ./run.sh
+    cargo boj submit -p=output.txt -l=58 22206
     */
+    io.eput("");
     None
 }
 
@@ -34,7 +39,7 @@ mod test {
     use std::collections::*;
     #[allow(clippy::all)]
     #[allow(unused_must_use, unused_doc_comments)]
-    fn solve2<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
+    fn solve2<R: BufRead, W: Write, E: Write>(io: &mut IO<R, W, E>) -> Option<()> {
         let [r, c, k] = io.get([0usize; 3])?;
         let grid = io.get(vec![B; r])?;
         let mut ans = 0usize;
@@ -116,11 +121,13 @@ mod test {
                         }
                         let mut output1: Vec<u8> = vec![];
                         let mut output2: Vec<u8> = vec![];
-                        let mut io1 = IO::new(&input[..], &mut output1);
+                        let mut output3: Vec<u8> = vec![];
+                        let mut io1 = IO::new(&input[..], &mut output1, &mut output3);
                         solve(&mut io1);
-                        let mut io2 = IO::new(&input[..], &mut output2);
+                        drop(io1);
+                        let mut io2 = IO::new(&input[..], &mut output2, &mut output3);
                         solve2(&mut io2);
-                        drop(io1); drop(io2);
+                        drop(io2);
                         assert_eq!(output1, output2, "failed on:\n{}; solve: {}, solve2: {}",
                             String::from_utf8_lossy(&input),
                             String::from_utf8_lossy(&output1),
@@ -152,6 +159,7 @@ pub fn main() {
     // let mut ii = I::new(stdin.lock());
     let stdout = stdout().lock();
     // let mut oo = BufWriter::new(stdout);
-    let mut io = IO::new(stdin, stdout);
+    let stderr = stderr().lock();
+    let mut io = IO::new(stdin, stdout, stderr);
     solve(&mut io);
 }

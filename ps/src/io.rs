@@ -1,14 +1,16 @@
-pub(crate) use std::io::{Write, stdin, stdout, BufWriter, BufRead};
+pub(crate) use std::io::{Write, stdin, stdout, stderr, BufWriter, BufRead};
 
-pub(crate) struct IO<R: BufRead, W: Write> {
+pub(crate) struct IO<R: BufRead, W: Write, E: Write> {
     ii: I<R>,
     oo: BufWriter<W>,
+    ee: BufWriter<E>,
 }
-impl<R: BufRead, W: Write> IO<R, W> {
-    pub(crate) fn new(r: R, w: W) -> Self {
+impl<R: BufRead, W: Write, E: Write> IO<R, W, E> {
+    pub(crate) fn new(r: R, w: W, e: E) -> Self {
         Self {
             ii: I::new(r),
             oo: BufWriter::new(w),
+            ee: BufWriter::new(e),
         }
     }
     pub(crate) fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
@@ -16,6 +18,10 @@ impl<R: BufRead, W: Write> IO<R, W> {
     }
     pub(crate) fn put<T: Print>(&mut self, t: T) -> &mut Self {
         t.print(&mut self.oo);
+        self
+    }
+    pub(crate) fn eput<T: Print>(&mut self, t: T) -> &mut Self {
+        t.print(&mut self.ee);
         self
     }
     pub(crate) fn end<T: Print>(&mut self, t: T) -> Option<()> {
@@ -31,11 +37,26 @@ impl<R: BufRead, W: Write> IO<R, W> {
         }
         self
     }
+    pub(crate) fn esep<T: Print, U: Print, Arr: IntoIterator<Item=T>>(&mut self, arr: Arr, sep: U) -> &mut Self {
+        let mut first = true;
+        for t in arr {
+            if !first { sep.print(&mut self.ee); }
+            t.print(&mut self.ee);
+            first = false;
+        }
+        self
+    }
     pub(crate) fn sp(&mut self) -> &mut Self {
         self.put(" ")
     }
+    pub(crate) fn esp(&mut self) -> &mut Self {
+        self.eput(" ")
+    }
     pub(crate) fn nl(&mut self) -> &mut Self {
         self.put("\n")
+    }
+    pub(crate) fn enl(&mut self) -> &mut Self {
+        self.eput("\n")
     }
     pub(crate) fn flush(&mut self) -> &mut Self {
         self.oo.flush().unwrap();
