@@ -1,0 +1,29 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "ps: go",
+            "type": "shell",
+            "command": "cd ps; ./go.sh ${input:problemID}"
+        },
+        {
+            "label": "ps: test",
+            "type": "shell",
+            "command": "cd ps; ./test.sh ${input:problemID}"
+        },
+        {
+            "label": "ps: run",
+            "type": "shell",
+            "command": "cd ps; ./run.sh"
+        },
+    ],
+    "inputs": [
+        {
+            "id": "problemID",
+            "type": "promptString",
+            "description": "BOJ Problem ID"
+        }
+    ]
+}
