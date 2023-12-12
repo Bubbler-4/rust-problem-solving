@@ -1,150 +1,30 @@
-use std::collections::*;
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
-fn solve<R: BufRead, W: Write>(io: &mut IO<R, W>) -> Option<()> {
+fn solve<R: BufRead, W: Write, E: Write>(io: &mut IO<R, W, E>) -> Option<()> {
 	let n = io.get(0usize)?;
-	let mut conn = vec![vec![]; n];
-	let mut anticonn = vec![vec![]; n];
-	let mut matrix = vec![vec![false; n]; n];
-	for i in 0..n {
-		let k = io.get(0usize)?;
-		let v = io.get(vec![0usize; k])?;
-		let mut non = 0;
-		for x in v {
-			conn[i].push(x as u16 - 1);
-			matrix[i][x - 1] = true;
-			for y in non..x - 1 {
-				if y != i {
-					anticonn[i].push(y as u16);
-				}
-			}
-			non = x;
-		}
-		for y in non..n {
-			if y != i {
-				anticonn[i].push(y as u16);
-			}
-		}
+	let v = io.get(vec![0usize; n])?;
+	let mut ans = v.iter().sum::<usize>() * 2 + n * 2 + v[0] + v[n - 1];
+	for w in v.windows(2) {
+		ans += w[0].abs_diff(w[1]);
 	}
-	#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-	enum State {
-		Unused,
-		Clique,
-		Anti,
-	}
-	use State::*;
-	let mut used = vec![Unused; n];
-	let mut clique = vec![];
-	let mut anticlique = vec![];
-	let degmin = (0..n)
-		.filter(|&i| used[i] == Unused)
-		.min_by_key(|&i| conn[i].len())
-		.unwrap();
-	let degmax = (0..n)
-		.filter(|&i| used[i] == Unused)
-		.max_by_key(|&i| conn[i].len())
-		.unwrap();
-	if conn[degmin].len() == n - 1 || conn[degmax].len() == 0 {
-		io.put(n);
-		None?
-	}
-	let mut extra = 0;
-	while let Some(degmin)
-		= (0..n).filter(|&i| used[i] == Unused).min_by_key(|&i| conn[i].len())
-	{
-		let degmax = (0..n)
-			.filter(|&i| used[i] == Unused)
-			.max_by_key(|&i| conn[i].len())
-			.unwrap();
-		if conn[degmax].len() == clique.len() {
-			io.put(n - clique.len() - anticlique.len() + 1 + extra);
-			None?
-		}
-		if conn[degmin].len() == n - anticlique.len() - 1 {
-			io.put(n - clique.len() - anticlique.len() + 1);
-			None?
-		}
-		let mut anti_q = VecDeque::from(vec![degmin]);
-		let mut cliq_q = VecDeque::new();
-		used[degmin] = Anti;
-		extra = 1;
-		while let Some(anti) = anti_q.pop_front() {
-			for &prev_anti in &anticlique {
-				if matrix[anti][prev_anti] {
-					io.put('0');
-					None?
-				}
-			}
-			anticlique.push(anti);
-			for &cli in &conn[anti] {
-				let cli = cli as usize;
-				if used[cli] == Clique {
-					continue;
-				}
-				if used[cli] == Anti {
-					io.put('0');
-					None?
-				}
-				used[cli] = Clique;
-				cliq_q.push_back(cli);
-				if anti != degmin {
-					extra = 0;
-				}
-			}
-			while let Some(cli) = cliq_q.pop_front() {
-				for &prev_cli in &clique {
-					if matrix[cli][prev_cli] {} else {
-						io.put('0');
-						None?
-					}
-				}
-				clique.push(cli);
-				for &anti in &anticonn[cli] {
-					let anti = anti as usize;
-					if used[anti] == Anti {
-						continue;
-					}
-					if used[anti] == Clique {
-						io.put('0');
-						None?
-					}
-					used[anti] = Anti;
-					anti_q.push_back(anti);
-				}
-			}
-		}
-	}
-	io.put(1);
+	io.put(ans);
+	io.eput("");
 	None
-}
-mod geometry {
-    use std::cmp::Ordering;
-    #[derive(Clone, Copy)]
-    pub(crate) struct Frac(pub(crate) i64, pub(crate) i64);
-    impl PartialEq for Frac {
-        fn eq(&self, other: &Self) -> bool {
-            self.0 * other.1 == self.1 * other.0
-        }
-    }
-    impl Eq for Frac {}
-    impl PartialOrd for Frac {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            (self.0 * other.1).partial_cmp(&(self.1 * other.0))
-        }
-    }
 }
 /// IO template
 mod io {
-	pub(crate) use std::io::{Write, stdin, stdout, BufWriter, BufRead};
-	pub(crate) struct IO<R: BufRead, W: Write> {
+	pub(crate) use std::io::{Write, stdin, stdout, stderr, BufWriter, BufRead};
+	pub(crate) struct IO<R: BufRead, W: Write, E: Write> {
 		ii: I<R>,
 		oo: BufWriter<W>,
+		ee: BufWriter<E>,
 	}
-	impl<R: BufRead, W: Write> IO<R, W> {
-		pub(crate) fn new(r: R, w: W) -> Self {
+	impl<R: BufRead, W: Write, E: Write> IO<R, W, E> {
+		pub(crate) fn new(r: R, w: W, e: E) -> Self {
 			Self {
 				ii: I::new(r),
 				oo: BufWriter::new(w),
+				ee: BufWriter::new(e),
 			}
 		}
 		pub(crate) fn get<T: Fill>(&mut self, exemplar: T) -> Option<T> {
@@ -152,6 +32,10 @@ mod io {
 		}
 		pub(crate) fn put<T: Print>(&mut self, t: T) -> &mut Self {
 			t.print(&mut self.oo);
+			self
+		}
+		pub(crate) fn eput<T: Print>(&mut self, t: T) -> &mut Self {
+			t.print(&mut self.ee);
 			self
 		}
 	}
@@ -165,7 +49,6 @@ mod io {
 		};
 	}
 	print_disp!(usize, i64, String, & str, char);
-	print_disp!(i16, i32, i128);
 	pub(crate) struct I<R: BufRead> {
 		r: R,
 		line: String,
@@ -198,13 +81,15 @@ mod io {
 	pub(crate) trait Fill {
 		fn fill_from_input<R: BufRead>(&mut self, i: &mut I<R>) -> Option<()>;
 	}
-	const WS: [char; 3] = [' ', '\n', '\r'];
+	fn ws(c: char) -> bool {
+		c <= ' '
+	}
 	macro_rules! fill_num {
 		($($t:ty),+) => {
 			$(impl Fill for $t { fn fill_from_input < R : BufRead > (& mut self, i : &
-			mut I < R >) -> Option < () > { i.rem = i.rem.trim_start_matches(WS); while i
-			.rem.is_empty() { i.next_line() ?; i.rem = i.rem.trim_start_matches(WS); }
-			let tok = i.rem.split(WS).next().unwrap(); i.rem = & i.rem[tok.len()..]; *
+			mut I < R >) -> Option < () > { i.rem = i.rem.trim_start_matches(ws); while i
+			.rem.is_empty() { i.next_line() ?; i.rem = i.rem.trim_start_matches(ws); }
+			let tok = i.rem.split(ws).next().unwrap(); i.rem = & i.rem[tok.len()..]; *
 			self = tok.parse().ok() ?; Some(()) } })+
 		};
 	}
@@ -222,6 +107,7 @@ use io::*;
 pub fn main() {
 	let stdin = stdin().lock();
 	let stdout = stdout().lock();
-	let mut io = IO::new(stdin, stdout);
+	let stderr = stderr().lock();
+	let mut io = IO::new(stdin, stdout, stderr);
 	solve(&mut io);
 }

@@ -6,28 +6,15 @@ use std::cmp::{Reverse, Ordering, Ordering::*};
 #[allow(clippy::all)]
 #[allow(unused_must_use, unused_doc_comments)]
 fn solve<R: BufRead, W: Write, E: Write>(io: &mut IO<R, W, E>) -> Option<()> {
-    let mut phi = (0usize..=10000).collect::<Vec<_>>();
-    for p in 2..=10000 {
-        if phi[p] == p {
-            for q in (p..=10000).step_by(p) {
-                phi[q] = phi[q] / p * (p-1);
-            }
-        }
+    let n = io.get(0usize)?;
+    let v = io.get(vec![0usize; n])?;
+    let mut ans = v.iter().sum::<usize>() * 2 + n * 2 + v[0] + v[n-1];
+    for w in v.windows(2) {
+        ans += w[0].abs_diff(w[1]);
     }
-    phi[0] = 1;
-    for i in 1..=10000 { phi[i] += phi[i-1]; }
-    let t = io.get(0usize)?;
-    for _ in 0..t {
-        let n = io.get(0usize)?;
-        io.put(phi[n]).nl();
-    }
-    /*
-    cd ps
-    ./go.sh 13076
-    ./test.sh 18809
-    ./run.sh
-    cargo boj submit -p=output.txt -l=58 22206
-    */
+    io.put(ans);
+    // end of solution
+    // go/test/run: ^k g/t/r, resubmit: ^k ;
     io.eput("");
     None
 }
@@ -150,6 +137,7 @@ mod string;
 mod fft;
 mod flow;
 mod lca;
+mod random;
 /// IO template
 mod io;
 use io::*;
