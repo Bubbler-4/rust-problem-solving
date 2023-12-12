@@ -6,12 +6,14 @@
         {
             "label": "ps: go",
             "type": "shell",
-            "command": "cd ps; ./go.sh ${input:problemID}"
+            "command": "cd ps; ./go.sh ${input:problemID}",
+            "runOptions": { "reevaluateOnRerun": false }
         },
         {
             "label": "ps: test",
             "type": "shell",
-            "command": "cd ps; ./test.sh ${input:problemID}"
+            "command": "cd ps; ./test.sh ${input:problemID}",
+            "runOptions": { "reevaluateOnRerun": false }
         },
         {
             "label": "ps: run",
