@@ -10,7 +10,6 @@ extern crate rustc_session;
 extern crate rustc_span;
 
 use rustc_errors::registry;
-use rustc_errors::DIAGNOSTICS;
 use rustc_session::config;
 use std::io;
 use std::path;
@@ -51,10 +50,10 @@ fn main() {
         file_loader: None,
         locale_resources: rustc_driver::DEFAULT_LOCALE_RESOURCES,
         lint_caps: rustc_hash::FxHashMap::default(),
-        psess_created: None,
+        parse_sess_created: None,
         register_lints: None,
         override_queries: None,
-        registry: registry::Registry::new(&DIAGNOSTICS),
+        registry: registry::Registry::new(&[][..]),
         make_codegen_backend: None,
         expanded_args: vec![],
         ice_file: None,

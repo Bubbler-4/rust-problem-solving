@@ -41,7 +41,7 @@ fn main() {
         file_loader: None,
         locale_resources: rustc_driver::DEFAULT_LOCALE_RESOURCES,
         lint_caps: rustc_hash::FxHashMap::default(),
-        psess_created: None,
+        parse_sess_created: None,
         register_lints: None,
         override_queries: None,
         registry: registry::Registry::new(&[][..]),
