@@ -24,6 +24,11 @@ impl<R: BufRead, W: Write, E: Write> IO<R, W, E> {
         t.print(&mut self.ee);
         self
     }
+    pub(crate) fn dbg<T: std::fmt::Debug>(&mut self, t: T) -> &mut Self {
+        writeln!(self.ee, "{:?}", t).unwrap();
+        self.ee.flush().unwrap();
+        self
+    }
     pub(crate) fn end<T: Print>(&mut self, t: T) -> Option<()> {
         t.print(&mut self.oo);
         None
