@@ -9,6 +9,6 @@ USER gitpod
 RUN rustup toolchain update stable \
     && rustup component add rust-src rustc-dev llvm-tools-preview rustfmt clippy \
     && cargo install cargo-boj@0.6.0 \
-    && cargo install geckodriver@0.34 \
+    && cargo install geckodriver@^0.34 \
     && rustup toolchain install nightly --component rust-src rustc-dev llvm-tools-preview \
     && cargo +nightly install cargo-oj
