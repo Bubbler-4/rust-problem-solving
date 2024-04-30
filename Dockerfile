@@ -1,6 +1,8 @@
 FROM gitpod/workspace-rust:latest
 
 USER root
+RUN add-apt-repository -y ppa:mozillateam/ppa
+RUN printf "Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 501" > /etc/apt/preferences.d/mozillateamppa
 RUN apt-get update -y -q && apt-get upgrade -y -q \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
   firefox fonts-noto-cjk fonts-noto-color-emoji
