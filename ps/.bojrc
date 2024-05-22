@@ -1,0 +1,6 @@
+set credentials $BUB_BOJAUTOLOGIN $BUB_ONLINEJUDGE
+set build 'cargo oj && cargo build --release --bin main'
+set cmd './target/release/main'
+set input 'input.txt'
+set lang 'Rust 2021'
+set file 'src/bin/main.rs'
