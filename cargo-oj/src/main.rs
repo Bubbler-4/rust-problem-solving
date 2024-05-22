@@ -14,22 +14,24 @@ fn main() {
     let file = load_recursive("src/lib");
     let source = prettyplease::unparse(&file);
 
-    // Run rustc to get unused warnings
-    let unused = rustc_check_unused(&source, false);
-    // Parse the source into a `syn` AST and remove unused codes
-    let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
-    remove_unused(&mut ast, &unused, &source);
+    // // Run rustc to get unused warnings
+    // let unused = rustc_check_unused(&source, false);
+    // // Parse the source into a `syn` AST and remove unused codes
+    // let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
+    // remove_unused(&mut ast, &unused, &source);
 
-    // Bruteforce removing items one by one
-    let source = prettyplease::unparse(&ast);
+    // // Bruteforce removing items one by one
+    // let source = prettyplease::unparse(&ast);
     let bleached = try_remove_one_item(&source);
 
     // Remove unused code again
     let mut source = bleached;
-    let unused = rustc_check_unused(&source, true);
-    let mut ast = reparse(&source);
-    remove_unused(&mut ast, &unused, &source);
-    source = prettyplease::unparse(&ast);
+    for _ in 0..5 {
+        let unused = rustc_check_unused(&source, true);
+        let mut ast = reparse(&source);
+        remove_unused(&mut ast, &unused, &source);
+        source = prettyplease::unparse(&ast);
+    }
 
     // Replace leading indents with tabs
     let mut final_source = String::new();
@@ -42,7 +44,7 @@ fn main() {
 
     // Write out the final result
     let _ = fs::create_dir("src/bin"); // Create directory if not exists, do nothing otherwise
-    fs::write("src/bin/main.rs", &final_source).expect("Failed to write to the file src/bin/main.rs.");
+    fs::write("src/bin/main.rs", &source).expect("Failed to write to the file src/bin/main.rs.");
 }
 
 // A helper to replace sections of code with spaces ("bleach")
@@ -82,6 +84,18 @@ fn try_remove_one_item(src: &str) -> String {
             let mut failed = VecDeque::new();
             // Test one-item deletions sequentially and cyclically until a whole cycle fails
             let mut after_success_counter = 0usize;
+            // while let Some(span) = spans.pop_front() {
+            //     let mut modified_src = src2.clone();
+            //     modified_src.bleach(span);
+            //     let success = rustc_check_success_async(modified_src.src_str()).await;
+            //     // println!("deleting src {}:\n{}", if success { "success" } else { "failed" }, &src[span.0..span.1]);
+            //     if success {
+            //         src2.bleach(span);
+            //         spans.append(&mut failed);
+            //     } else {
+            //         failed.push_back(span);
+            //     }
+            // }
             loop {
                 if futures.len() < 4 && !spans.is_empty() {
                     let span = spans.pop_front().unwrap();
@@ -124,6 +138,10 @@ fn offset(span: (usize, usize), start: usize) -> (usize, usize) {
     (span.0 - start, span.1 - start)
 }
 
+fn fn_is_main(func: &syn::ItemFn) -> bool {
+    func.sig.ident.to_string() == "main"
+}
+
 fn mod_is_cfg_test(module: &syn::ItemMod) -> bool {
     module.attrs.iter().any(|attr| {
         let meta = &attr.meta;
@@ -152,7 +170,7 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     let mut pos_items = Vec::new();
     for (i, item) in root.items.iter().enumerate() {
         match item {
-            syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
+            syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) | syn::Item::Fn(_) | syn::Item::Use(_) => {
                 pos_items.push((vec![i], item));
             }
             syn::Item::Struct(syn::ItemStruct { attrs, .. })
@@ -173,10 +191,11 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
                 let span = offset(span_to_bytes(item.span()), root_span.0);
                 positions.push((pos, span));
             }
+            syn::Item::Fn(func) if fn_is_main(func) => {}
             syn::Item::Mod(syn::ItemMod{content: Some((_, items)), ..}) => {
                 for (i, item) in items.iter().enumerate() {
                     match item {
-                        syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
+                        syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) | syn::Item::Fn(_) | syn::Item::Use(_) => {
                             let mut next_pos = pos.clone();
                             next_pos.push(i);
                             pos_items.push((next_pos, item));
@@ -196,7 +215,7 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
                     }
                 }
             }
-            syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) | syn::Item::Struct(_) | syn::Item::Enum(_) => {
+            syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) | syn::Item::Struct(_) | syn::Item::Enum(_) | syn::Item::Fn(_) | syn::Item::Use(_) => {
                 let span = offset(span_to_bytes(item.span()), root_span.0);
                 positions.push((pos, span));
             }
