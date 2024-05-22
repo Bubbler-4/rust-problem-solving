@@ -15,7 +15,7 @@ fn main() {
     let source = prettyplease::unparse(&file);
 
     // Run rustc to get unused warnings
-    let unused = rustc_check_unused(&source);
+    let unused = rustc_check_unused(&source, false);
     // Parse the source into a `syn` AST and remove unused codes
     let mut ast = syn::parse_file(&source).expect("Failed to parse as Rust source code.");
     remove_unused(&mut ast, &unused, &source);
@@ -25,10 +25,11 @@ fn main() {
     let bleached = try_remove_one_item(&source);
 
     // Remove unused code again
-    let unused = rustc_check_unused(&bleached);
-    let mut ast = reparse(&bleached);
+    let mut source = bleached;
+    let unused = rustc_check_unused(&source, true);
+    let mut ast = reparse(&source);
     remove_unused(&mut ast, &unused, &source);
-    let source = prettyplease::unparse(&ast);
+    source = prettyplease::unparse(&ast);
 
     // Replace leading indents with tabs
     let mut final_source = String::new();
@@ -140,9 +141,10 @@ fn mod_is_cfg_test(module: &syn::ItemMod) -> bool {
 
 fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     // Extract positions of:
-    //   - mod-level items that are trait defs, and impl blocks
+    //   - mod-level items that are trait/struct/enum defs, and impl blocks
     //   - impl blocks
-    //   - attributes on structs and enums (for #[derive(...)])
+    //   - attributes on structs, enums, and traits (for #[derive(...)])
+    //     (includes doc comments on those)
     //   - macros
     // No mods because it will be removed at next dead_code pass
     let root_span = span_to_bytes(root.span());
@@ -150,10 +152,13 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     let mut pos_items = Vec::new();
     for (i, item) in root.items.iter().enumerate() {
         match item {
-            syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
+            syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
                 pos_items.push((vec![i], item));
             }
-            syn::Item::Struct(syn::ItemStruct { attrs, .. }) | syn::Item::Enum(syn::ItemEnum { attrs, .. }) => {
+            syn::Item::Struct(syn::ItemStruct { attrs, .. })
+            | syn::Item::Enum(syn::ItemEnum { attrs, .. })
+            | syn::Item::Trait(syn::ItemTrait { attrs, .. }) => {
+                pos_items.push((vec![i], item));
                 for attr in attrs {
                     let span = offset(span_to_bytes(attr.span()), root_span.0);
                     positions.push((vec![], span));
@@ -171,12 +176,17 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
             syn::Item::Mod(syn::ItemMod{content: Some((_, items)), ..}) => {
                 for (i, item) in items.iter().enumerate() {
                     match item {
-                        syn::Item::Mod(_) | syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
+                        syn::Item::Mod(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
                             let mut next_pos = pos.clone();
                             next_pos.push(i);
                             pos_items.push((next_pos, item));
                         }
-                        syn::Item::Struct(syn::ItemStruct { attrs, .. }) | syn::Item::Enum(syn::ItemEnum { attrs, .. }) => {
+                        syn::Item::Struct(syn::ItemStruct { attrs, .. })
+                        | syn::Item::Enum(syn::ItemEnum { attrs, .. })
+                        | syn::Item::Trait(syn::ItemTrait { attrs, .. }) => {
+                            let mut next_pos = pos.clone();
+                            next_pos.push(i);
+                            pos_items.push((next_pos, item));
                             for attr in attrs {
                                 let span = offset(span_to_bytes(attr.span()), root_span.0);
                                 positions.push((pos.clone(), span));
@@ -186,7 +196,7 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
                     }
                 }
             }
-            syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) => {
+            syn::Item::Trait(_) | syn::Item::Impl(_) | syn::Item::Macro(_) | syn::Item::Struct(_) | syn::Item::Enum(_) => {
                 let span = offset(span_to_bytes(item.span()), root_span.0);
                 positions.push((pos, span));
             }
@@ -195,24 +205,6 @@ fn item_positions(root: &syn::File) -> Vec<(Vec<usize>, (usize, usize))> {
     }
     positions
 }
-
-// async fn rustc_check_success_async0(source: &str) -> bool {
-//     async fn inner(source: &str) -> Result<bool, Box<dyn std::error::Error>> {
-//         let mut rustc_check = tokio::process::Command::new("rustc");
-//         rustc_check
-//             .args(["--emit=mir", "--edition=2021", "--out-dir=/tmp/ramdisk", "-"])
-//             .stdin(Stdio::piped())
-//             .stdout(Stdio::null())
-//             .stderr(Stdio::null());
-//         let mut child = rustc_check.spawn().expect("Failed to run rustc.");
-//         let mut stdin = child.stdin.take().expect("Failed to get stdin handle of rustc.");
-//         stdin.write_all(source.as_bytes()).await.expect("Failed to write to rustc's stdin.");
-//         drop(stdin); // Signal EOF
-//         let status = child.wait().await?;
-//         Ok(status.success())
-//     }
-//     inner(source).await.unwrap()
-// }
 
 async fn rustc_check_success_async(source: &str) -> bool {
     async fn inner(source: &str) -> Result<bool, Box<dyn std::error::Error>> {
@@ -375,38 +367,7 @@ impl VisitMut for UnusedRemover {
     }
 }
 
-// fn rustc_check_unused0(source: &str) -> HashSet<RawSpan> {
-//     let mut rustc_check = Command::new("rustc");
-//     rustc_check
-//         .args(["--emit=mir", "--edition", "2021", "--error-format", "json", "--out-dir=/tmp/ramdisk", "-"])
-//         .stdin(Stdio::piped())
-//         .stdout(Stdio::null())
-//         .stderr(Stdio::piped());
-//     let child = rustc_check.spawn().expect("Failed to run rustc.");
-//     let mut stdin = child.stdin.as_ref().expect("Failed to get stdin handle of rustc.");
-//     stdin.write_all(source.as_bytes()).expect("Failed to write to rustc's stdin.");
-//     let rustc_check_stdout = child.wait_with_output().expect("Failed to open rustc's stdout.");
-//     let rustc_check_output = String::from_utf8(rustc_check_stdout.stderr).unwrap();
-//     let mut unused = HashSet::new();
-//     for line in rustc_check_output.lines() {
-//         let Ok(obj) = line.parse::<Value>() else { continue; };
-//         let warning = obj.pointer("/code/code");
-//         if warning == Some(&Value::from("dead_code")) || warning == Some(&Value::from("unused_imports")) {
-//             let Some(spans) = obj.pointer("/spans") else { continue; };
-//             let Some(spans) = spans.as_array() else { continue; };
-//             for span in spans {
-//                 let is_primary = span.pointer("/is_primary").unwrap().as_bool().unwrap();
-//                 if !is_primary { continue; }
-//                 let byte_start = span.pointer("/byte_start").unwrap().as_u64().unwrap() as usize;
-//                 let byte_end = span.pointer("/byte_end").unwrap().as_u64().unwrap() as usize;
-//                 unused.insert(RawSpan(byte_start, byte_end));
-//             }
-//         }
-//     }
-//     unused
-// }
-
-fn rustc_check_unused(source: &str) -> HashSet<RawSpan> {
+fn rustc_check_unused(source: &str, remove_struct: bool) -> HashSet<RawSpan> {
     let mut rustc_check = Command::new("rustup");
     rustc_check
         .args(["run", "nightly", "cargo-oj-internal-unused"])
@@ -424,6 +385,8 @@ fn rustc_check_unused(source: &str) -> HashSet<RawSpan> {
         let warning = obj.pointer("/code/code");
         if warning == Some(&Value::from("dead_code")) || warning == Some(&Value::from("unused_imports")) {
             let Some(spans) = obj.pointer("/spans") else { continue; };
+            let Some(message) = obj.pointer("/message") else { continue; };
+            if !remove_struct && message.as_str().is_some_and(|s| s.contains("never constructed")) { continue; }
             let Some(spans) = spans.as_array() else { continue; };
             for span in spans {
                 let is_primary = span.pointer("/is_primary").unwrap().as_bool().unwrap();
