@@ -1,3 +1,6 @@
 [submodule "cargo-boj"]
 	path = cargo-boj
 	url = https://github.com/Bubbler-4/cargo-boj.git
+[submodule "gaboja"]
+	path = gaboja
+	url = https://github.com/Bubbler-4/gaboja.git
