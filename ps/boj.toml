@@ -1,0 +1,14 @@
+start = '''
+set credentials $BUB_BOJAUTOLOGIN $BUB_ONLINEJUDGE
+preset rust
+'''
+
+[[preset]]
+name = 'rust'
+# credentials = { bojautologin = '$BUB_BOJAUTOLOGIN', onlinejudge = '$BUB_ONLINEJUDGE' }
+init = ''
+build = 'cargo oj && cargo build --release --bin main'
+cmd = './target/release/main'
+input = 'input.txt'
+lang = 'Rust 2021'
+file = 'src/bin/main.rs'
